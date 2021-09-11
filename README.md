@@ -1,5 +1,10 @@
 # Yolo v4, v3 and v2 for Windows and Linux
 
+## EE382M soc notes
+- [Lab1 setup](http://users.ece.utexas.edu/~gerstl/ece382m_f21/labs/lab1.htm)
+### Steps
+1. 
+
 ## (neural networks for object detection)
 
 Paper YOLO v4: https://arxiv.org/abs/2004.10934
