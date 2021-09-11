@@ -1,9 +1,19 @@
 # Yolo v4, v3 and v2 for Windows and Linux
 
 ## EE382M soc notes
-- [Lab1 setup](http://users.ece.utexas.edu/~gerstl/ece382m_f21/labs/lab1.htm)
+- [Lab1 setup link](http://users.ece.utexas.edu/~gerstl/ece382m_f21/labs/lab1.htm)
 ### Steps
-1. 
+1. Connect the board and turn it on. Make sure the corresponding device appears in the /dev directory
+2. use screen to connect to the boards terminal
+    ```bash
+    sudo screen -L /dev/ttyUSB1 115200
+    ```
+
+
+** For a graceful shutdown, please use the fillowing command
+```bash
+sudo halt
+```
 
 ## (neural networks for object detection)
 
