@@ -14,8 +14,12 @@ ZED_CAMERA_v2_8=0
 # set ZED_CAMERA=1 to enable ZED SDK 3.0 and above
 # set ZED_CAMERA_v2_8=1 to enable ZED SDK 2.X
 
-USE_CPP=0
+USE_CPP=1
+USE_PROFILING=1
 DEBUG=0
+
+# For cross compiling set this variable
+USE_CROSS=1
 
 ARCH= -gencode arch=compute_35,code=sm_35 \
       -gencode arch=compute_50,code=[sm_50,compute_50] \
@@ -74,11 +78,22 @@ CC=gcc
 endif
 
 CPP=g++ -std=c++11
+
+ifeq ($(USE_CROSS), 1)
+CC=aarch64-linux-gnu-gcc
+CPP=aarch64-linux-gnu-g++
+endif
+
+
 NVCC=nvcc
 OPTS=-Ofast
 LDFLAGS= -lm -pthread
 COMMON= -Iinclude/ -I3rdparty/stb/include
 CFLAGS=-Wall -Wfatal-errors -Wno-unused-result -Wno-unknown-pragmas -fPIC
+
+ifeq ($(USE_PROFILING), 1)
+CFLAGS+= -pg
+endif
 
 ifeq ($(DEBUG), 1)
 #OPTS= -O0 -g
