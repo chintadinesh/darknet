@@ -7,8 +7,8 @@
 2. use screen to connect to the boards terminal
     ```bash
     sudo screen -L /dev/ttyUSB1 115200
-    ```
-
+3. If you are not working on the baord, c code might be throwing errors. Please use g++ while compiling. Also, set profiling appropriately. 
+4. 
 
 ** For a graceful shutdown, please use the fillowing command
 ```bash
