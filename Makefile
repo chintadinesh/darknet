@@ -19,7 +19,7 @@ USE_PROFILING=1
 DEBUG=0
 
 # For cross compiling set this variable
-USE_CROSS=1
+USE_CROSS=0
 
 ARCH= -gencode arch=compute_35,code=sm_35 \
       -gencode arch=compute_50,code=[sm_50,compute_50] \

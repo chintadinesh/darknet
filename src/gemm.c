@@ -750,9 +750,11 @@ void gemm_nn(int M, int N, int K, float ALPHA,
             for (k = 0; k < K; ++k) {
                 PUT_IN_REGISTER float A_PART = ALPHA * A[i * lda + k];
                 for (j = 0; j < N; ++j) {
-                    C[i*ldc + j] += A_PART*B[k*ldb + j];
+                    // partially computed result
+                    C[i*ldc + j] += A_PART*B[k*ldb + j]; 
                 }
                 /* // SSE
+                //printf("Hello\n");
                 __m128 a128, b128, c128, result128;    // SSE
                 a128 = _mm_set1_ps(A_PART);
                 for (j = 0; j < N - 4; j += 4) {
@@ -1973,20 +1975,77 @@ int is_fma_avx2() {
     return 0;
 }
 
+// http://users.ece.utexas.edu/~gerstl/ece382m_f21/labs/lab1/fp2fx.cpp
+int __roundup(float fp_number) {
+	int	fx_number	=	(int)fp_number;
+
+	if(fp_number-fx_number>=0.5)	fx_number++;
+
+	return	fx_number;
+}
+
+
+
 void gemm_nn(int M, int N, int K, float ALPHA,
     float *A, int lda,
     float *B, int ldb,
     float *C, int ldc)
 {
     int i, j, k;
+
+    /* Uncomment for floating point computations
+    //printf("Hello\n");
     for (i = 0; i < M; ++i) {
         for (k = 0; k < K; ++k) {
             PUT_IN_REGISTER float A_PART = ALPHA * A[i * lda + k];
+
             for (j = 0; j < N; ++j) {
                 C[i*ldc + j] += A_PART*B[k*ldb + j];
             }
+
+            // // SSE
+            //printf("Hello\n");
+            __m128 a128, b128, c128, result128;    // SSE
+            a128 = _mm_set1_ps(A_PART);
+            for (j = 0; j < N - 4; j += 4) {
+            b128 = _mm_loadu_ps(&B[k*ldb + j]);
+            c128 = _mm_loadu_ps(&C[i*ldc + j]);
+            //result128 = _mm_fmadd_ps(a128, b128, c128);
+            result128 = _mm_mul_ps(a128, b128);
+            result128 = _mm_add_ps(result128, c128);
+            _mm_storeu_ps(&C[i*ldc + j], result128);
+            }
+
+            int prev_end = (N % 4 == 0) ? (N - 4) : (N / 4) * 4;
+            for (j = prev_end; j < N; ++j){
+            C[i*ldc + j] += A_PART*B[k*ldb + j];
+            }
+            
+
+
         }
     }
+    */
+
+    //Uncomment for int point computations
+
+    //TODO: adjust scale intelligently
+    int scale = 16;
+
+    // convert ALPHA into int here
+    //PUT_IN_REGISTER int AlPHA = __roundup(ALPHA * (1 << scale));
+    int AlPHA = __roundup(ALPHA * (1 << scale));
+    for (i = 0; i < M; ++i) {
+        for (k = 0; k < K; ++k) {
+            PUT_IN_REGISTER int A_PART = ALPHA * __roundup(A[i * lda + k] * (1 << scale));
+            for (j = 0; j < N; ++j) {
+                int res =  A_PART * __roundup(B[k*ldb + j] * (1 << scale));
+                C[i*ldc + j] += (float)(A_PART* __roundup(B[k*ldb + j] * (1 << scale)))/(1 << scale);
+            }
+        }
+    }
+
+
 }
 
 void gemm_nn_fast(int M, int N, int K, float ALPHA,
@@ -2036,6 +2095,22 @@ void gemm_nn_bin_32bit_packed(int M, int N, int K, float ALPHA,
     }
 }
 
+void my_gemm_nn_32bit(int M, int N, int K, float ALPHA,
+    uint32_t *A, int lda,
+    uint32_t *B, int ldb,
+    float *C, int ldc)
+{
+    int i, j, k;
+    //printf("Hello\n");
+    for (i = 0; i < M; ++i) {
+        for (k = 0; k < K; ++k) {
+            PUT_IN_REGISTER uint32_t A_PART = ALPHA * A[i * lda + k];
+            for (j = 0; j < N; ++j) {
+                C[i*ldc + j] += A_PART*B[k*ldb + j];
+            }
+        }
+    }
+}
 
 void convolution_2d(int w, int h, int ksize, int n, int c, int pad, int stride,
     float *weights, float *input, float *output, float *mean)
