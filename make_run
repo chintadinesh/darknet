@@ -1,0 +1,4 @@
+#! /bin/bash
+
+make clean -j4 && make -j4
+./run

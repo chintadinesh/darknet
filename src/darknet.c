@@ -32,6 +32,10 @@ extern void run_go(int argc, char **argv);
 extern void run_art(int argc, char **argv);
 extern void run_super(int argc, char **argv);
 
+
+float maximum = 0;
+float minimum = 0;
+
 void average(int argc, char *argv[])
 {
     char *cfgfile = argv[2];
@@ -555,5 +559,7 @@ int main(int argc, char **argv)
     } else {
         fprintf(stderr, "Not an option: %s\n", argv[1]);
     }
+
+    //printf("\n[DEBUG] Discovered max = %f, min = %f\n", maximum, minimum);
     return 0;
 }

@@ -12,6 +12,9 @@
 #include <omp.h>
 #endif
 
+#define DTYPE int
+#define FX_CONV 1
+
 #if defined(_MSC_VER)
 #if defined(_M_ARM) || defined(_M_ARM64)
 static inline uint32_t popcnt(uint32_t v) {
@@ -49,6 +52,8 @@ static inline int popcnt_64(uint64_t val64) {
 #else
 #define PUT_IN_REGISTER register
 #endif
+
+extern float maximum, minimum;
 
 void gemm_bin(int M, int N, int K, float ALPHA,
         char  *A, int lda,
@@ -1977,7 +1982,10 @@ int is_fma_avx2() {
 
 // http://users.ece.utexas.edu/~gerstl/ece382m_f21/labs/lab1/fp2fx.cpp
 int __roundup(float fp_number) {
-	int	fx_number	=	(int)fp_number;
+    //if(fp_number > maximum) maximum = fp_number;
+    //if(fp_number < minimum) minimum = fp_number;
+
+	DTYPE fx_number	=	(DTYPE)fp_number;
 
 	if(fp_number-fx_number>=0.5)	fx_number++;
 
@@ -2029,23 +2037,38 @@ void gemm_nn(int M, int N, int K, float ALPHA,
 
     //Uncomment for int point computations
 
-    //TODO: adjust scale intelligently
-    int scale = 16;
+    if(FX_CONV == 1){ 
+        //TODO: adjust scale intelligently
+        int scale = 20;
 
-    // convert ALPHA into int here
-    //PUT_IN_REGISTER int AlPHA = __roundup(ALPHA * (1 << scale));
-    int AlPHA = __roundup(ALPHA * (1 << scale));
-    for (i = 0; i < M; ++i) {
-        for (k = 0; k < K; ++k) {
-            PUT_IN_REGISTER int A_PART = ALPHA * __roundup(A[i * lda + k] * (1 << scale));
-            for (j = 0; j < N; ++j) {
-                int res =  A_PART * __roundup(B[k*ldb + j] * (1 << scale));
-                C[i*ldc + j] += (float)(A_PART* __roundup(B[k*ldb + j] * (1 << scale)))/(1 << scale);
+        // convert ALPHA into int here
+        //PUT_IN_REGISTER int AlPHA = __roundup(ALPHA * (1 << scale));
+
+        DTYPE AlPHA = __roundup(ALPHA * (1 << scale));
+
+        for (i = 0; i < M; ++i) {
+            for (k = 0; k < K; ++k) {
+
+                PUT_IN_REGISTER DTYPE A_PART = ALPHA * __roundup(A[i * lda + k] * (1 << scale));
+
+                for (j = 0; j < N; ++j) {
+                    //DTYPE res =  A_PART * __roundup(B[k*ldb + j] * (1 << scale));
+                    C[i*ldc + j] += (float)((A_PART * __roundup(B[k*ldb + j] * (1 << scale)))/(1 << 3*scale));
+                }
             }
         }
     }
+    else{
+        for (i = 0; i < M; ++i) {
+            for (k = 0; k < K; ++k) {
+                PUT_IN_REGISTER float A_PART = ALPHA * A[i * lda + k];
 
-
+                for (j = 0; j < N; ++j) {
+                    C[i*ldc + j] += A_PART*B[k*ldb + j];
+                }
+            }
+        }
+    }
 }
 
 void gemm_nn_fast(int M, int N, int K, float ALPHA,
