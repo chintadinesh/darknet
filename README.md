@@ -11,15 +11,112 @@
 
 
 ## Experiments
+* Optimizing gemm
+    * We cant really get rid of the initial float multiplication with scale
+     and  the subsequent float division with scale as they cut off the
+     essential information
+
+        ```c
+        mAP drops to 25% when this method is used
+        C[i*ldc + j] 
+            += (A_PART     *   (int)(B[k*ldb + j] * (1 << scale))) >> (2*scale);
+        */                                              
+        ```
+    * With int type rounding time taken by gemm is 1.97 sec. 
+        log = perf_results/darknet.perf.withscale_int_round.test.141337.18092021
+    * floating point gemm takes, 1.95 seconds 
+* Does scale matter?
+    * The difficulty in answering this is to measure the difference in
+      performance.
+    * Unfortunately, for all other scales, the mAP is too low. Also, FNs are
+      high for small scale.
+
+* Let us start with scale = 13:
+    * We don't actually need our custom \__roundup function. I am directly
+      type casting to int types.
+    * mAP close to 100%. log = "log/map.withscale_cnative_round.133032.18092021" 
+    * Time is around 2 seconds. Now, only gemm_nn is the bottleneck.
+        log = "log/map.withscale_cnative_round.133032.18092021"
+
+* For scale = 13, 
+    * the mAP came to be 100%. log = "log/map.fx.124030.18092021"
+    * Time taken = 13s; log =  "perf_results/darknet.perf.fx.124248.18092021"
+
+* After analysis of the fixed point output matrix, I noted that scale is not
+ being set properly. Running SNR test different values of scale on the fixed
+ point output matrix, we get the following SNR results
+    * table
+
+
+        |scale  | snr |
+        |---    |-------------|
+        |1      | 25.368002|
+        |2      | 28.792755|
+        |3      | 43.377327|
+        |4      |    54.751232|
+        |5      |    67.387032|
+        |6      |    77.842567|
+        |7      |    94.654114|
+        |8      |    102.631355|
+        |9      |    117.446495|
+        |10     |    130.757172|
+        |11     |    146.535904|
+        |12     |    160.423248|
+        |13     |    174.414871|
+        |14     |    74.169121|
+        |15     |    1.698584|
+        |16     |    0.076399|
+        |17     |    0.178493|
+        |18     |    -0.167274|
+        |19     |    0.012987|
+        |20     |    0.009955|
+        |21     |    -0.004165|
+
+        
+
+* If the precision is not lost, we can aswell represent the data in char, 
+    * as we know the max and min values to be: max = 76.966393, min = -17.589060 
+    * I think it is more important to have a look at the SNR values of the
+     calculations instead of mAP to decide on the scale.
+    *  
+* With c's native round function:
+    * gemm_nn still shows the same time. However, time taken round disappers.
+    * Total time ~= 10 sec. log = "perf_results/darknet.perf.cnative_round.011654.18092021"
+    * mAP:  mean average precision (mAP) = 0.037500, or 3.75 % (2 classes)
+    * log = "log/map.cnative_round.011634.18092021"
+
+* gprof results for scale = 23 is 
+    * time = 17 seconds. log = 'perf_results/darknet.perf.scale_23.234744.17092021'
+    * for floating, time = 1.12 seconds. log = 'perf_results/darknet.perf.fpx.000556.18092021'
+* We fix scale = 23 for performance analysis.
+* SNR: for the testbench provided at * [tb](http://users.ece.utexas.edu/~gerstl/ece382m_f21/labs/lab1/testbench.m),\ 
+    we got the following results for different values of scaling:
+    * logfile = 'log/snr.231906.17092021'
+    * results
+        |scale    | snr      |
+        |---------|-------- |
+        | 8       | 18.262178|
+        | 9       | 25.754839|
+        | 10      | 38.904385|
+        | 11      | 50.432785|
+        | 12      | 64.333061|
+        | 13      | 78.565445|
+        | 14      | 90.450508|
+        | 15      | 105.698715|
+        | 16      | -4.251273|
+        | 17      | -0.958876|
+        | 18      | -0.754522|
+        | 19      | 0.000042|
+
 * Rounding the floats to int has given a performance hit.
     a. Without rounding, it takes a total of 1 sec in gemm_nn
 * There is not much in difference by changing the order of for loops. Maybe 
     because the row and column sizes are big enough 
-* Profiling the input data ranges.
-    a. Monitoring through native int and float types is not working. 
-    b. Trying with float type:
-        Discovered max = 76.966393, min = -17.589060
-* Now let us text the mAp. We were given with the following info about how to do it
+* Profiling the input data ranges.  
+    * Monitoring through native int and float types is not working.  
+    * Trying with float type: 
+        * Discovered max = 76.966393, min = -17.589060
+* Now let us test the mAp. We were given with the following info about how to do it
     ```bash
     wget http://www.ece.utexas.edu/~gerstl/ece382m_f21/labs/lab1/darknet-map.patch
     patch -p0 -b < darknet-map.patch
@@ -27,7 +124,7 @@
     make
     ```
 * Results of mAp:
-    * With no modifications, here are the results
+    * With no modifications, here are the results: as expected, we get 100% mAP.
         ```bash
         for conf_thresh = 0.25, precision = 0.67, recall = 1.00, F1-score = 0.80
         for conf_thresh = 0.25, TP = 4, FP = 2, FN = 0, average IoU = 66.62 %
@@ -38,6 +135,8 @@
         Total Detection Time: 1 Seconds
         ```
     * With the given roundup, here are the results
+        <details><summary>Results</summary>
+        <p>
         ```bash
         detections_count = 0, unique_truth_count = 4
         class_id = 0, name = person, ap = 0.00%   	 (TP = 0, FP = 0)
@@ -129,7 +228,1658 @@
         mean average precision (mAP) = 0.000000, or 0.00 % (1 classes)
         Total Detection Time: 98 Seconds
         ```
+        </p>
+        </details>
+        
+    * Experiments on different scale: Here is a summary 
+        * Table
+            | Scale         |     mAP %             |
+            | ------------- |     -------------     |
+            | 17            |     1.77 % (3 classes)|
+            | 18            |     1.64 % (1 classes)|
+            | 19            |     0.06 % (1 classes)|
+            | 20            |     3.89 % (2 classes)|
+            | 21            |     2.31 % (4 classes)|
+            | 22            |     2.53 % (3 classes)|
+            | 23            |     4.90 % (2 classes)|
+            | 24            |     0.06 % (3 classes)|
+            | 25            |     0.05 % (3 classes)|
+            | 26            |     0.05 % (3 classes)|
+            | 27            |     1.12 % (3 classes)|
 
+
+        <details><summary>Results</summary>
+        <p>
+
+        ```bash
+        Scale = 17
+        Building project...
+        GPU isn't used
+        OpenCV isn't used - data augmentation will be slow
+        mini_batch = 1, batch = 1, time_steps = 1, train = 0
+        layer   filters  size/strd(dil)      input                output
+        0 conv     16       3 x 3/ 1    416 x 416 x   3 ->  416 x 416 x  16 0.150 BF
+        1 max                2x 2/ 2    416 x 416 x  16 ->  208 x 208 x  16 0.003 BF
+        2 conv     32       3 x 3/ 1    208 x 208 x  16 ->  208 x 208 x  32 0.399 BF
+        3 max                2x 2/ 2    208 x 208 x  32 ->  104 x 104 x  32 0.001 BF
+        4 conv     64       3 x 3/ 1    104 x 104 x  32 ->  104 x 104 x  64 0.399 BF
+        5 max                2x 2/ 2    104 x 104 x  64 ->   52 x  52 x  64 0.001 BF
+        6 conv    128       3 x 3/ 1     52 x  52 x  64 ->   52 x  52 x 128 0.399 BF
+        7 max                2x 2/ 2     52 x  52 x 128 ->   26 x  26 x 128 0.000 BF
+        8 conv    256       3 x 3/ 1     26 x  26 x 128 ->   26 x  26 x 256 0.399 BF
+        9 max                2x 2/ 2     26 x  26 x 256 ->   13 x  13 x 256 0.000 BF
+        10 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+        11 max                2x 2/ 1     13 x  13 x 512 ->   13 x  13 x 512 0.000 BF
+        12 conv   1024       3 x 3/ 1     13 x  13 x 512 ->   13 x  13 x1024 1.595 BF
+        13 conv    256       1 x 1/ 1     13 x  13 x1024 ->   13 x  13 x 256 0.089 BF
+        14 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+        15 conv    255       1 x 1/ 1     13 x  13 x 512 ->   13 x  13 x 255 0.044 BF
+        16 yolo
+        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+        17 route  13 		                           ->   13 x  13 x 256
+        18 conv    128       1 x 1/ 1     13 x  13 x 256 ->   13 x  13 x 128 0.011 BF
+        19 upsample                 2x    13 x  13 x 128 ->   26 x  26 x 128
+        20 route  19 8 	                           ->   26 x  26 x 384
+        21 conv    256       3 x 3/ 1     26 x  26 x 384 ->   26 x  26 x 256 1.196 BF
+        22 conv    255       1 x 1/ 1     26 x  26 x 256 ->   26 x  26 x 255 0.088 BF
+        23 yolo
+        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+        Total BFLOPS 5.571
+        avg_outputs = 341534
+        Loading weights from yolov3-tiny.weights...
+        seen 64, trained: 32013 K-images (500 Kilo-batches_64)
+        Done! Loaded 24 layers from weights-file
+
+        calculation mAP (mean average precision)...
+        Detection layer: 16 - type = 28
+        Detection layer: 23 - type = 28
+        1
+        detections_count = 136925, unique_truth_count = 4
+        class_id = 0, name = person, ap = 0.00%   	 (TP = 0, FP = 4)
+        class_id = 1, name = bicycle, ap = 1.49%   	 (TP = 0, FP = 0)
+        class_id = 2, name = car, ap = 0.58%   	 (TP = 0, FP = 31)
+        class_id = 3, name = motorbike, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 4, name = aeroplane, ap = 0.00%   	 (TP = 0, FP = 2)
+        class_id = 5, name = bus, ap = 0.00%   	 (TP = 0, FP = 3)
+        class_id = 6, name = train, ap = 0.00%   	 (TP = 0, FP = 3)
+        class_id = 7, name = truck, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 8, name = boat, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 9, name = traffic light, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 10, name = fire hydrant, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 11, name = stop sign, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 12, name = parking meter, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 13, name = bench, ap = 0.00%   	 (TP = 0, FP = 1)
+        class_id = 14, name = bird, ap = 0.00%   	 (TP = 0, FP = 1)
+        class_id = 15, name = cat, ap = 0.00%   	 (TP = 0, FP = 1)
+        class_id = 16, name = dog, ap = 3.23%   	 (TP = 0, FP = 0)
+        class_id = 17, name = horse, ap = 0.00%   	 (TP = 0, FP = 1)
+        class_id = 18, name = sheep, ap = 0.00%   	 (TP = 0, FP = 12)
+        class_id = 19, name = cow, ap = 0.00%   	 (TP = 0, FP = 13)
+        class_id = 20, name = elephant, ap = 0.00%   	 (TP = 0, FP = 1)
+        class_id = 21, name = bear, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 22, name = zebra, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 23, name = giraffe, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 24, name = backpack, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 25, name = umbrella, ap = 0.00%   	 (TP = 0, FP = 1)
+        class_id = 26, name = handbag, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 27, name = tie, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 28, name = suitcase, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 29, name = frisbee, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 30, name = skis, ap = 0.00%   	 (TP = 0, FP = 2)
+        class_id = 31, name = snowboard, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 32, name = sports ball, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 33, name = kite, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 34, name = baseball bat, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 35, name = baseball glove, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 36, name = skateboard, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 37, name = surfboard, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 38, name = tennis racket, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 39, name = bottle, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 40, name = wine glass, ap = 0.00%   	 (TP = 0, FP = 1)
+        class_id = 41, name = cup, ap = 0.00%   	 (TP = 0, FP = 2)
+        class_id = 42, name = fork, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 43, name = knife, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 44, name = spoon, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 45, name = bowl, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 46, name = banana, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 47, name = apple, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 48, name = sandwich, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 49, name = orange, ap = 0.00%   	 (TP = 0, FP = 2)
+        class_id = 50, name = broccoli, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 51, name = carrot, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 52, name = hot dog, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 53, name = pizza, ap = 0.00%   	 (TP = 0, FP = 1)
+        class_id = 54, name = donut, ap = 0.00%   	 (TP = 0, FP = 1)
+        class_id = 55, name = cake, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 56, name = chair, ap = 0.00%   	 (TP = 0, FP = 10)
+        class_id = 57, name = sofa, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 58, name = pottedplant, ap = 0.00%   	 (TP = 0, FP = 1)
+        class_id = 59, name = bed, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 60, name = diningtable, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 61, name = toilet, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 62, name = tvmonitor, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 63, name = laptop, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 64, name = mouse, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 65, name = remote, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 66, name = keyboard, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 67, name = cell phone, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 68, name = microwave, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 69, name = oven, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 70, name = toaster, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 71, name = sink, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 72, name = refrigerator, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 73, name = book, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 74, name = clock, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 75, name = vase, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 76, name = scissors, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 77, name = teddy bear, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 78, name = hair drier, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 79, name = toothbrush, ap = 0.00%   	 (TP = 0, FP = 0)
+
+        for conf_thresh = 0.25, precision = 0.00, recall = 0.00, F1-score = -nan
+        for conf_thresh = 0.25, TP = 0, FP = 94, FN = 4, average IoU = 0.00 %
+
+        IoU threshold = 50 %, used Area-Under-Curve for each unique Recall
+
+        mean average precision (mAP) = 0.017677, or 1.77 % (3 classes)
+        Total Detection Time: 85 Seconds
+
+        Set -points flag:
+        `-points 101` for MS COCO
+        `-points 11` for PascalVOC 2007 (uncomment `difficult` in voc.data)
+        `-points 0` (AUC) for ImageNet, PascalVOC 2010-2012, your custom dataset
+        Scale = 18
+        Building project...
+        GPU isn't used
+        OpenCV isn't used - data augmentation will be slow
+        mini_batch = 1, batch = 1, time_steps = 1, train = 0
+        layer   filters  size/strd(dil)      input                output
+        0 conv     16       3 x 3/ 1    416 x 416 x   3 ->  416 x 416 x  16 0.150 BF
+        1 max                2x 2/ 2    416 x 416 x  16 ->  208 x 208 x  16 0.003 BF
+        2 conv     32       3 x 3/ 1    208 x 208 x  16 ->  208 x 208 x  32 0.399 BF
+        3 max                2x 2/ 2    208 x 208 x  32 ->  104 x 104 x  32 0.001 BF
+        4 conv     64       3 x 3/ 1    104 x 104 x  32 ->  104 x 104 x  64 0.399 BF
+        5 max                2x 2/ 2    104 x 104 x  64 ->   52 x  52 x  64 0.001 BF
+        6 conv    128       3 x 3/ 1     52 x  52 x  64 ->   52 x  52 x 128 0.399 BF
+        7 max                2x 2/ 2     52 x  52 x 128 ->   26 x  26 x 128 0.000 BF
+        8 conv    256       3 x 3/ 1     26 x  26 x 128 ->   26 x  26 x 256 0.399 BF
+        9 max                2x 2/ 2     26 x  26 x 256 ->   13 x  13 x 256 0.000 BF
+        10 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+        11 max                2x 2/ 1     13 x  13 x 512 ->   13 x  13 x 512 0.000 BF
+        12 conv   1024       3 x 3/ 1     13 x  13 x 512 ->   13 x  13 x1024 1.595 BF
+        13 conv    256       1 x 1/ 1     13 x  13 x1024 ->   13 x  13 x 256 0.089 BF
+        14 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+        15 conv    255       1 x 1/ 1     13 x  13 x 512 ->   13 x  13 x 255 0.044 BF
+        16 yolo
+        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+        17 route  13 		                           ->   13 x  13 x 256
+        18 conv    128       1 x 1/ 1     13 x  13 x 256 ->   13 x  13 x 128 0.011 BF
+        19 upsample                 2x    13 x  13 x 128 ->   26 x  26 x 128
+        20 route  19 8 	                           ->   26 x  26 x 384
+        21 conv    256       3 x 3/ 1     26 x  26 x 384 ->   26 x  26 x 256 1.196 BF
+        22 conv    255       1 x 1/ 1     26 x  26 x 256 ->   26 x  26 x 255 0.088 BF
+        23 yolo
+        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+        Total BFLOPS 5.571
+        avg_outputs = 341534
+        Loading weights from yolov3-tiny.weights...
+        seen 64, trained: 32013 K-images (500 Kilo-batches_64)
+        Done! Loaded 24 layers from weights-file
+
+        calculation mAP (mean average precision)...
+        Detection layer: 16 - type = 28
+        Detection layer: 23 - type = 28
+        1
+        detections_count = 138440, unique_truth_count = 4
+        class_id = 0, name = person, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 1, name = bicycle, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 2, name = car, ap = 1.64%   	 (TP = 0, FP = 0)
+        class_id = 3, name = motorbike, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 4, name = aeroplane, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 5, name = bus, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 6, name = train, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 7, name = truck, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 8, name = boat, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 9, name = traffic light, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 10, name = fire hydrant, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 11, name = stop sign, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 12, name = parking meter, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 13, name = bench, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 14, name = bird, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 15, name = cat, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 16, name = dog, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 17, name = horse, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 18, name = sheep, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 19, name = cow, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 20, name = elephant, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 21, name = bear, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 22, name = zebra, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 23, name = giraffe, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 24, name = backpack, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 25, name = umbrella, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 26, name = handbag, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 27, name = tie, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 28, name = suitcase, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 29, name = frisbee, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 30, name = skis, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 31, name = snowboard, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 32, name = sports ball, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 33, name = kite, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 34, name = baseball bat, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 35, name = baseball glove, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 36, name = skateboard, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 37, name = surfboard, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 38, name = tennis racket, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 39, name = bottle, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 40, name = wine glass, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 41, name = cup, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 42, name = fork, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 43, name = knife, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 44, name = spoon, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 45, name = bowl, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 46, name = banana, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 47, name = apple, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 48, name = sandwich, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 49, name = orange, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 50, name = broccoli, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 51, name = carrot, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 52, name = hot dog, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 53, name = pizza, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 54, name = donut, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 55, name = cake, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 56, name = chair, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 57, name = sofa, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 58, name = pottedplant, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 59, name = bed, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 60, name = diningtable, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 61, name = toilet, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 62, name = tvmonitor, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 63, name = laptop, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 64, name = mouse, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 65, name = remote, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 66, name = keyboard, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 67, name = cell phone, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 68, name = microwave, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 69, name = oven, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 70, name = toaster, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 71, name = sink, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 72, name = refrigerator, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 73, name = book, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 74, name = clock, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 75, name = vase, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 76, name = scissors, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 77, name = teddy bear, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 78, name = hair drier, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 79, name = toothbrush, ap = 0.00%   	 (TP = 0, FP = 0)
+
+        for conf_thresh = 0.25, precision = -nan, recall = 0.00, F1-score = -nan
+        for conf_thresh = 0.25, TP = 0, FP = 0, FN = 4, average IoU = 0.00 %
+
+        IoU threshold = 50 %, used Area-Under-Curve for each unique Recall
+
+        mean average precision (mAP) = 0.016393, or 1.64 % (1 classes)
+        Total Detection Time: 82 Seconds
+
+        Set -points flag:
+        `-points 101` for MS COCO
+        `-points 11` for PascalVOC 2007 (uncomment `difficult` in voc.data)
+        `-points 0` (AUC) for ImageNet, PascalVOC 2010-2012, your custom dataset
+        Scale = 19
+        Building project...
+        GPU isn't used
+        OpenCV isn't used - data augmentation will be slow
+        mini_batch = 1, batch = 1, time_steps = 1, train = 0
+        layer   filters  size/strd(dil)      input                output
+        0 conv     16       3 x 3/ 1    416 x 416 x   3 ->  416 x 416 x  16 0.150 BF
+        1 max                2x 2/ 2    416 x 416 x  16 ->  208 x 208 x  16 0.003 BF
+        2 conv     32       3 x 3/ 1    208 x 208 x  16 ->  208 x 208 x  32 0.399 BF
+        3 max                2x 2/ 2    208 x 208 x  32 ->  104 x 104 x  32 0.001 BF
+        4 conv     64       3 x 3/ 1    104 x 104 x  32 ->  104 x 104 x  64 0.399 BF
+        5 max                2x 2/ 2    104 x 104 x  64 ->   52 x  52 x  64 0.001 BF
+        6 conv    128       3 x 3/ 1     52 x  52 x  64 ->   52 x  52 x 128 0.399 BF
+        7 max                2x 2/ 2     52 x  52 x 128 ->   26 x  26 x 128 0.000 BF
+        8 conv    256       3 x 3/ 1     26 x  26 x 128 ->   26 x  26 x 256 0.399 BF
+        9 max                2x 2/ 2     26 x  26 x 256 ->   13 x  13 x 256 0.000 BF
+        10 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+        11 max                2x 2/ 1     13 x  13 x 512 ->   13 x  13 x 512 0.000 BF
+        12 conv   1024       3 x 3/ 1     13 x  13 x 512 ->   13 x  13 x1024 1.595 BF
+        13 conv    256       1 x 1/ 1     13 x  13 x1024 ->   13 x  13 x 256 0.089 BF
+        14 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+        15 conv    255       1 x 1/ 1     13 x  13 x 512 ->   13 x  13 x 255 0.044 BF
+        16 yolo
+        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+        17 route  13 		                           ->   13 x  13 x 256
+        18 conv    128       1 x 1/ 1     13 x  13 x 256 ->   13 x  13 x 128 0.011 BF
+        19 upsample                 2x    13 x  13 x 128 ->   26 x  26 x 128
+        20 route  19 8 	                           ->   26 x  26 x 384
+        21 conv    256       3 x 3/ 1     26 x  26 x 384 ->   26 x  26 x 256 1.196 BF
+        22 conv    255       1 x 1/ 1     26 x  26 x 256 ->   26 x  26 x 255 0.088 BF
+        23 yolo
+        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+        Total BFLOPS 5.571
+        avg_outputs = 341534
+        Loading weights from yolov3-tiny.weights...
+        seen 64, trained: 32013 K-images (500 Kilo-batches_64)
+        Done! Loaded 24 layers from weights-file
+
+        calculation mAP (mean average precision)...
+        Detection layer: 16 - type = 28
+        Detection layer: 23 - type = 28
+        1
+        detections_count = 124485, unique_truth_count = 4
+        class_id = 0, name = person, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 1, name = bicycle, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 2, name = car, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 3, name = motorbike, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 4, name = aeroplane, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 5, name = bus, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 6, name = train, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 7, name = truck, ap = 0.06%   	 (TP = 0, FP = 0)
+        class_id = 8, name = boat, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 9, name = traffic light, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 10, name = fire hydrant, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 11, name = stop sign, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 12, name = parking meter, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 13, name = bench, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 14, name = bird, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 15, name = cat, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 16, name = dog, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 17, name = horse, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 18, name = sheep, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 19, name = cow, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 20, name = elephant, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 21, name = bear, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 22, name = zebra, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 23, name = giraffe, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 24, name = backpack, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 25, name = umbrella, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 26, name = handbag, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 27, name = tie, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 28, name = suitcase, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 29, name = frisbee, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 30, name = skis, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 31, name = snowboard, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 32, name = sports ball, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 33, name = kite, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 34, name = baseball bat, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 35, name = baseball glove, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 36, name = skateboard, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 37, name = surfboard, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 38, name = tennis racket, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 39, name = bottle, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 40, name = wine glass, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 41, name = cup, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 42, name = fork, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 43, name = knife, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 44, name = spoon, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 45, name = bowl, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 46, name = banana, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 47, name = apple, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 48, name = sandwich, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 49, name = orange, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 50, name = broccoli, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 51, name = carrot, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 52, name = hot dog, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 53, name = pizza, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 54, name = donut, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 55, name = cake, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 56, name = chair, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 57, name = sofa, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 58, name = pottedplant, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 59, name = bed, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 60, name = diningtable, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 61, name = toilet, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 62, name = tvmonitor, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 63, name = laptop, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 64, name = mouse, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 65, name = remote, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 66, name = keyboard, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 67, name = cell phone, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 68, name = microwave, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 69, name = oven, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 70, name = toaster, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 71, name = sink, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 72, name = refrigerator, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 73, name = book, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 74, name = clock, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 75, name = vase, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 76, name = scissors, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 77, name = teddy bear, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 78, name = hair drier, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 79, name = toothbrush, ap = 0.00%   	 (TP = 0, FP = 0)
+
+        for conf_thresh = 0.25, precision = -nan, recall = 0.00, F1-score = -nan
+        for conf_thresh = 0.25, TP = 0, FP = 0, FN = 4, average IoU = 0.00 %
+
+        IoU threshold = 50 %, used Area-Under-Curve for each unique Recall
+
+        mean average precision (mAP) = 0.000591, or 0.06 % (1 classes)
+        Total Detection Time: 81 Seconds
+
+        Set -points flag:
+        `-points 101` for MS COCO
+        `-points 11` for PascalVOC 2007 (uncomment `difficult` in voc.data)
+        `-points 0` (AUC) for ImageNet, PascalVOC 2010-2012, your custom dataset
+        Scale = 20
+        Building project...
+        GPU isn't used
+        OpenCV isn't used - data augmentation will be slow
+        mini_batch = 1, batch = 1, time_steps = 1, train = 0
+        layer   filters  size/strd(dil)      input                output
+        0 conv     16       3 x 3/ 1    416 x 416 x   3 ->  416 x 416 x  16 0.150 BF
+        1 max                2x 2/ 2    416 x 416 x  16 ->  208 x 208 x  16 0.003 BF
+        2 conv     32       3 x 3/ 1    208 x 208 x  16 ->  208 x 208 x  32 0.399 BF
+        3 max                2x 2/ 2    208 x 208 x  32 ->  104 x 104 x  32 0.001 BF
+        4 conv     64       3 x 3/ 1    104 x 104 x  32 ->  104 x 104 x  64 0.399 BF
+        5 max                2x 2/ 2    104 x 104 x  64 ->   52 x  52 x  64 0.001 BF
+        6 conv    128       3 x 3/ 1     52 x  52 x  64 ->   52 x  52 x 128 0.399 BF
+        7 max                2x 2/ 2     52 x  52 x 128 ->   26 x  26 x 128 0.000 BF
+        8 conv    256       3 x 3/ 1     26 x  26 x 128 ->   26 x  26 x 256 0.399 BF
+        9 max                2x 2/ 2     26 x  26 x 256 ->   13 x  13 x 256 0.000 BF
+        10 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+        11 max                2x 2/ 1     13 x  13 x 512 ->   13 x  13 x 512 0.000 BF
+        12 conv   1024       3 x 3/ 1     13 x  13 x 512 ->   13 x  13 x1024 1.595 BF
+        13 conv    256       1 x 1/ 1     13 x  13 x1024 ->   13 x  13 x 256 0.089 BF
+        14 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+        15 conv    255       1 x 1/ 1     13 x  13 x 512 ->   13 x  13 x 255 0.044 BF
+        16 yolo
+        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+        17 route  13 		                           ->   13 x  13 x 256
+        18 conv    128       1 x 1/ 1     13 x  13 x 256 ->   13 x  13 x 128 0.011 BF
+        19 upsample                 2x    13 x  13 x 128 ->   26 x  26 x 128
+        20 route  19 8 	                           ->   26 x  26 x 384
+        21 conv    256       3 x 3/ 1     26 x  26 x 384 ->   26 x  26 x 256 1.196 BF
+        22 conv    255       1 x 1/ 1     26 x  26 x 256 ->   26 x  26 x 255 0.088 BF
+        23 yolo
+        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+        Total BFLOPS 5.571
+        avg_outputs = 341534
+        Loading weights from yolov3-tiny.weights...
+        seen 64, trained: 32013 K-images (500 Kilo-batches_64)
+        Done! Loaded 24 layers from weights-file
+
+        calculation mAP (mean average precision)...
+        Detection layer: 16 - type = 28
+        Detection layer: 23 - type = 28
+        1
+        detections_count = 123185, unique_truth_count = 4
+        class_id = 0, name = person, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 1, name = bicycle, ap = 3.23%   	 (TP = 0, FP = 0)
+        class_id = 2, name = car, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 3, name = motorbike, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 4, name = aeroplane, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 5, name = bus, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 6, name = train, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 7, name = truck, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 8, name = boat, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 9, name = traffic light, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 10, name = fire hydrant, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 11, name = stop sign, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 12, name = parking meter, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 13, name = bench, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 14, name = bird, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 15, name = cat, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 16, name = dog, ap = 4.55%   	 (TP = 0, FP = 0)
+        class_id = 17, name = horse, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 18, name = sheep, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 19, name = cow, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 20, name = elephant, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 21, name = bear, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 22, name = zebra, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 23, name = giraffe, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 24, name = backpack, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 25, name = umbrella, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 26, name = handbag, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 27, name = tie, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 28, name = suitcase, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 29, name = frisbee, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 30, name = skis, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 31, name = snowboard, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 32, name = sports ball, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 33, name = kite, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 34, name = baseball bat, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 35, name = baseball glove, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 36, name = skateboard, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 37, name = surfboard, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 38, name = tennis racket, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 39, name = bottle, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 40, name = wine glass, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 41, name = cup, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 42, name = fork, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 43, name = knife, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 44, name = spoon, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 45, name = bowl, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 46, name = banana, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 47, name = apple, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 48, name = sandwich, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 49, name = orange, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 50, name = broccoli, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 51, name = carrot, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 52, name = hot dog, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 53, name = pizza, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 54, name = donut, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 55, name = cake, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 56, name = chair, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 57, name = sofa, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 58, name = pottedplant, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 59, name = bed, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 60, name = diningtable, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 61, name = toilet, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 62, name = tvmonitor, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 63, name = laptop, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 64, name = mouse, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 65, name = remote, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 66, name = keyboard, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 67, name = cell phone, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 68, name = microwave, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 69, name = oven, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 70, name = toaster, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 71, name = sink, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 72, name = refrigerator, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 73, name = book, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 74, name = clock, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 75, name = vase, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 76, name = scissors, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 77, name = teddy bear, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 78, name = hair drier, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 79, name = toothbrush, ap = 0.00%   	 (TP = 0, FP = 0)
+
+        for conf_thresh = 0.25, precision = -nan, recall = 0.00, F1-score = -nan
+        for conf_thresh = 0.25, TP = 0, FP = 0, FN = 4, average IoU = 0.00 %
+
+        IoU threshold = 50 %, used Area-Under-Curve for each unique Recall
+
+        mean average precision (mAP) = 0.038856, or 3.89 % (2 classes)
+        Total Detection Time: 80 Seconds
+
+        Set -points flag:
+        `-points 101` for MS COCO
+        `-points 11` for PascalVOC 2007 (uncomment `difficult` in voc.data)
+        `-points 0` (AUC) for ImageNet, PascalVOC 2010-2012, your custom dataset
+        Scale = 21
+        Building project...
+        GPU isn't used
+        OpenCV isn't used - data augmentation will be slow
+        mini_batch = 1, batch = 1, time_steps = 1, train = 0
+        layer   filters  size/strd(dil)      input                output
+        0 conv     16       3 x 3/ 1    416 x 416 x   3 ->  416 x 416 x  16 0.150 BF
+        1 max                2x 2/ 2    416 x 416 x  16 ->  208 x 208 x  16 0.003 BF
+        2 conv     32       3 x 3/ 1    208 x 208 x  16 ->  208 x 208 x  32 0.399 BF
+        3 max                2x 2/ 2    208 x 208 x  32 ->  104 x 104 x  32 0.001 BF
+        4 conv     64       3 x 3/ 1    104 x 104 x  32 ->  104 x 104 x  64 0.399 BF
+        5 max                2x 2/ 2    104 x 104 x  64 ->   52 x  52 x  64 0.001 BF
+        6 conv    128       3 x 3/ 1     52 x  52 x  64 ->   52 x  52 x 128 0.399 BF
+        7 max                2x 2/ 2     52 x  52 x 128 ->   26 x  26 x 128 0.000 BF
+        8 conv    256       3 x 3/ 1     26 x  26 x 128 ->   26 x  26 x 256 0.399 BF
+        9 max                2x 2/ 2     26 x  26 x 256 ->   13 x  13 x 256 0.000 BF
+        10 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+        11 max                2x 2/ 1     13 x  13 x 512 ->   13 x  13 x 512 0.000 BF
+        12 conv   1024       3 x 3/ 1     13 x  13 x 512 ->   13 x  13 x1024 1.595 BF
+        13 conv    256       1 x 1/ 1     13 x  13 x1024 ->   13 x  13 x 256 0.089 BF
+        14 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+        15 conv    255       1 x 1/ 1     13 x  13 x 512 ->   13 x  13 x 255 0.044 BF
+        16 yolo
+        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+        17 route  13 		                           ->   13 x  13 x 256
+        18 conv    128       1 x 1/ 1     13 x  13 x 256 ->   13 x  13 x 128 0.011 BF
+        19 upsample                 2x    13 x  13 x 128 ->   26 x  26 x 128
+        20 route  19 8 	                           ->   26 x  26 x 384
+        21 conv    256       3 x 3/ 1     26 x  26 x 384 ->   26 x  26 x 256 1.196 BF
+        22 conv    255       1 x 1/ 1     26 x  26 x 256 ->   26 x  26 x 255 0.088 BF
+        23 yolo
+        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+        Total BFLOPS 5.571
+        avg_outputs = 341534
+        Loading weights from yolov3-tiny.weights...
+        seen 64, trained: 32013 K-images (500 Kilo-batches_64)
+        Done! Loaded 24 layers from weights-file
+
+        calculation mAP (mean average precision)...
+        Detection layer: 16 - type = 28
+        Detection layer: 23 - type = 28
+        1
+        detections_count = 124209, unique_truth_count = 4
+        class_id = 0, name = person, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 1, name = bicycle, ap = 3.70%   	 (TP = 0, FP = 0)
+        class_id = 2, name = car, ap = 1.30%   	 (TP = 0, FP = 0)
+        class_id = 3, name = motorbike, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 4, name = aeroplane, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 5, name = bus, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 6, name = train, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 7, name = truck, ap = 0.06%   	 (TP = 0, FP = 0)
+        class_id = 8, name = boat, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 9, name = traffic light, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 10, name = fire hydrant, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 11, name = stop sign, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 12, name = parking meter, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 13, name = bench, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 14, name = bird, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 15, name = cat, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 16, name = dog, ap = 4.17%   	 (TP = 0, FP = 0)
+        class_id = 17, name = horse, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 18, name = sheep, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 19, name = cow, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 20, name = elephant, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 21, name = bear, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 22, name = zebra, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 23, name = giraffe, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 24, name = backpack, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 25, name = umbrella, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 26, name = handbag, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 27, name = tie, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 28, name = suitcase, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 29, name = frisbee, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 30, name = skis, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 31, name = snowboard, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 32, name = sports ball, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 33, name = kite, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 34, name = baseball bat, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 35, name = baseball glove, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 36, name = skateboard, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 37, name = surfboard, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 38, name = tennis racket, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 39, name = bottle, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 40, name = wine glass, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 41, name = cup, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 42, name = fork, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 43, name = knife, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 44, name = spoon, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 45, name = bowl, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 46, name = banana, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 47, name = apple, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 48, name = sandwich, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 49, name = orange, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 50, name = broccoli, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 51, name = carrot, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 52, name = hot dog, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 53, name = pizza, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 54, name = donut, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 55, name = cake, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 56, name = chair, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 57, name = sofa, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 58, name = pottedplant, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 59, name = bed, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 60, name = diningtable, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 61, name = toilet, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 62, name = tvmonitor, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 63, name = laptop, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 64, name = mouse, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 65, name = remote, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 66, name = keyboard, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 67, name = cell phone, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 68, name = microwave, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 69, name = oven, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 70, name = toaster, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 71, name = sink, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 72, name = refrigerator, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 73, name = book, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 74, name = clock, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 75, name = vase, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 76, name = scissors, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 77, name = teddy bear, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 78, name = hair drier, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 79, name = toothbrush, ap = 0.00%   	 (TP = 0, FP = 0)
+
+        for conf_thresh = 0.25, precision = -nan, recall = 0.00, F1-score = -nan
+        for conf_thresh = 0.25, TP = 0, FP = 0, FN = 4, average IoU = 0.00 %
+
+        IoU threshold = 50 %, used Area-Under-Curve for each unique Recall
+
+        mean average precision (mAP) = 0.023083, or 2.31 % (4 classes)
+        Total Detection Time: 87 Seconds
+
+        Set -points flag:
+        `-points 101` for MS COCO
+        `-points 11` for PascalVOC 2007 (uncomment `difficult` in voc.data)
+        `-points 0` (AUC) for ImageNet, PascalVOC 2010-2012, your custom dataset
+        Scale = 22
+        Building project...
+        GPU isn't used
+        OpenCV isn't used - data augmentation will be slow
+        mini_batch = 1, batch = 1, time_steps = 1, train = 0
+        layer   filters  size/strd(dil)      input                output
+        0 conv     16       3 x 3/ 1    416 x 416 x   3 ->  416 x 416 x  16 0.150 BF
+        1 max                2x 2/ 2    416 x 416 x  16 ->  208 x 208 x  16 0.003 BF
+        2 conv     32       3 x 3/ 1    208 x 208 x  16 ->  208 x 208 x  32 0.399 BF
+        3 max                2x 2/ 2    208 x 208 x  32 ->  104 x 104 x  32 0.001 BF
+        4 conv     64       3 x 3/ 1    104 x 104 x  32 ->  104 x 104 x  64 0.399 BF
+        5 max                2x 2/ 2    104 x 104 x  64 ->   52 x  52 x  64 0.001 BF
+        6 conv    128       3 x 3/ 1     52 x  52 x  64 ->   52 x  52 x 128 0.399 BF
+        7 max                2x 2/ 2     52 x  52 x 128 ->   26 x  26 x 128 0.000 BF
+        8 conv    256       3 x 3/ 1     26 x  26 x 128 ->   26 x  26 x 256 0.399 BF
+        9 max                2x 2/ 2     26 x  26 x 256 ->   13 x  13 x 256 0.000 BF
+        10 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+        11 max                2x 2/ 1     13 x  13 x 512 ->   13 x  13 x 512 0.000 BF
+        12 conv   1024       3 x 3/ 1     13 x  13 x 512 ->   13 x  13 x1024 1.595 BF
+        13 conv    256       1 x 1/ 1     13 x  13 x1024 ->   13 x  13 x 256 0.089 BF
+        14 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+        15 conv    255       1 x 1/ 1     13 x  13 x 512 ->   13 x  13 x 255 0.044 BF
+        16 yolo
+        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+        17 route  13 		                           ->   13 x  13 x 256
+        18 conv    128       1 x 1/ 1     13 x  13 x 256 ->   13 x  13 x 128 0.011 BF
+        19 upsample                 2x    13 x  13 x 128 ->   26 x  26 x 128
+        20 route  19 8 	                           ->   26 x  26 x 384
+        21 conv    256       3 x 3/ 1     26 x  26 x 384 ->   26 x  26 x 256 1.196 BF
+        22 conv    255       1 x 1/ 1     26 x  26 x 256 ->   26 x  26 x 255 0.088 BF
+        23 yolo
+        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+        Total BFLOPS 5.571
+        avg_outputs = 341534
+        Loading weights from yolov3-tiny.weights...
+        seen 64, trained: 32013 K-images (500 Kilo-batches_64)
+        Done! Loaded 24 layers from weights-file
+
+        calculation mAP (mean average precision)...
+        Detection layer: 16 - type = 28
+        Detection layer: 23 - type = 28
+        1
+        detections_count = 124126, unique_truth_count = 4
+        class_id = 0, name = person, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 1, name = bicycle, ap = 3.12%   	 (TP = 0, FP = 0)
+        class_id = 2, name = car, ap = 1.43%   	 (TP = 0, FP = 0)
+        class_id = 3, name = motorbike, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 4, name = aeroplane, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 5, name = bus, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 6, name = train, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 7, name = truck, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 8, name = boat, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 9, name = traffic light, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 10, name = fire hydrant, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 11, name = stop sign, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 12, name = parking meter, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 13, name = bench, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 14, name = bird, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 15, name = cat, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 16, name = dog, ap = 3.03%   	 (TP = 0, FP = 0)
+        class_id = 17, name = horse, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 18, name = sheep, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 19, name = cow, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 20, name = elephant, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 21, name = bear, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 22, name = zebra, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 23, name = giraffe, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 24, name = backpack, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 25, name = umbrella, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 26, name = handbag, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 27, name = tie, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 28, name = suitcase, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 29, name = frisbee, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 30, name = skis, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 31, name = snowboard, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 32, name = sports ball, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 33, name = kite, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 34, name = baseball bat, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 35, name = baseball glove, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 36, name = skateboard, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 37, name = surfboard, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 38, name = tennis racket, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 39, name = bottle, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 40, name = wine glass, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 41, name = cup, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 42, name = fork, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 43, name = knife, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 44, name = spoon, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 45, name = bowl, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 46, name = banana, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 47, name = apple, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 48, name = sandwich, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 49, name = orange, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 50, name = broccoli, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 51, name = carrot, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 52, name = hot dog, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 53, name = pizza, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 54, name = donut, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 55, name = cake, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 56, name = chair, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 57, name = sofa, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 58, name = pottedplant, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 59, name = bed, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 60, name = diningtable, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 61, name = toilet, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 62, name = tvmonitor, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 63, name = laptop, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 64, name = mouse, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 65, name = remote, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 66, name = keyboard, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 67, name = cell phone, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 68, name = microwave, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 69, name = oven, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 70, name = toaster, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 71, name = sink, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 72, name = refrigerator, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 73, name = book, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 74, name = clock, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 75, name = vase, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 76, name = scissors, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 77, name = teddy bear, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 78, name = hair drier, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 79, name = toothbrush, ap = 0.00%   	 (TP = 0, FP = 0)
+
+        for conf_thresh = 0.25, precision = -nan, recall = 0.00, F1-score = -nan
+        for conf_thresh = 0.25, TP = 0, FP = 0, FN = 4, average IoU = 0.00 %
+
+        IoU threshold = 50 %, used Area-Under-Curve for each unique Recall
+
+        mean average precision (mAP) = 0.025280, or 2.53 % (3 classes)
+        Total Detection Time: 81 Seconds
+
+        Set -points flag:
+        `-points 101` for MS COCO
+        `-points 11` for PascalVOC 2007 (uncomment `difficult` in voc.data)
+        `-points 0` (AUC) for ImageNet, PascalVOC 2010-2012, your custom dataset
+        Scale = 23
+        Building project...
+        GPU isn't used
+        OpenCV isn't used - data augmentation will be slow
+        mini_batch = 1, batch = 1, time_steps = 1, train = 0
+        layer   filters  size/strd(dil)      input                output
+        0 conv     16       3 x 3/ 1    416 x 416 x   3 ->  416 x 416 x  16 0.150 BF
+        1 max                2x 2/ 2    416 x 416 x  16 ->  208 x 208 x  16 0.003 BF
+        2 conv     32       3 x 3/ 1    208 x 208 x  16 ->  208 x 208 x  32 0.399 BF
+        3 max                2x 2/ 2    208 x 208 x  32 ->  104 x 104 x  32 0.001 BF
+        4 conv     64       3 x 3/ 1    104 x 104 x  32 ->  104 x 104 x  64 0.399 BF
+        5 max                2x 2/ 2    104 x 104 x  64 ->   52 x  52 x  64 0.001 BF
+        6 conv    128       3 x 3/ 1     52 x  52 x  64 ->   52 x  52 x 128 0.399 BF
+        7 max                2x 2/ 2     52 x  52 x 128 ->   26 x  26 x 128 0.000 BF
+        8 conv    256       3 x 3/ 1     26 x  26 x 128 ->   26 x  26 x 256 0.399 BF
+        9 max                2x 2/ 2     26 x  26 x 256 ->   13 x  13 x 256 0.000 BF
+        10 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+        11 max                2x 2/ 1     13 x  13 x 512 ->   13 x  13 x 512 0.000 BF
+        12 conv   1024       3 x 3/ 1     13 x  13 x 512 ->   13 x  13 x1024 1.595 BF
+        13 conv    256       1 x 1/ 1     13 x  13 x1024 ->   13 x  13 x 256 0.089 BF
+        14 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+        15 conv    255       1 x 1/ 1     13 x  13 x 512 ->   13 x  13 x 255 0.044 BF
+        16 yolo
+        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+        17 route  13 		                           ->   13 x  13 x 256
+        18 conv    128       1 x 1/ 1     13 x  13 x 256 ->   13 x  13 x 128 0.011 BF
+        19 upsample                 2x    13 x  13 x 128 ->   26 x  26 x 128
+        20 route  19 8 	                           ->   26 x  26 x 384
+        21 conv    256       3 x 3/ 1     26 x  26 x 384 ->   26 x  26 x 256 1.196 BF
+        22 conv    255       1 x 1/ 1     26 x  26 x 256 ->   26 x  26 x 255 0.088 BF
+        23 yolo
+        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+        Total BFLOPS 5.571
+        avg_outputs = 341534
+        Loading weights from yolov3-tiny.weights...
+        seen 64, trained: 32013 K-images (500 Kilo-batches_64)
+        Done! Loaded 24 layers from weights-file
+
+        calculation mAP (mean average precision)...
+        Detection layer: 16 - type = 28
+        Detection layer: 23 - type = 28
+        1
+        detections_count = 125206, unique_truth_count = 4
+        class_id = 0, name = person, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 1, name = bicycle, ap = 4.55%   	 (TP = 0, FP = 0)
+        class_id = 2, name = car, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 3, name = motorbike, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 4, name = aeroplane, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 5, name = bus, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 6, name = train, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 7, name = truck, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 8, name = boat, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 9, name = traffic light, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 10, name = fire hydrant, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 11, name = stop sign, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 12, name = parking meter, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 13, name = bench, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 14, name = bird, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 15, name = cat, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 16, name = dog, ap = 5.26%   	 (TP = 0, FP = 0)
+        class_id = 17, name = horse, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 18, name = sheep, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 19, name = cow, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 20, name = elephant, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 21, name = bear, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 22, name = zebra, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 23, name = giraffe, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 24, name = backpack, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 25, name = umbrella, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 26, name = handbag, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 27, name = tie, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 28, name = suitcase, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 29, name = frisbee, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 30, name = skis, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 31, name = snowboard, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 32, name = sports ball, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 33, name = kite, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 34, name = baseball bat, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 35, name = baseball glove, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 36, name = skateboard, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 37, name = surfboard, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 38, name = tennis racket, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 39, name = bottle, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 40, name = wine glass, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 41, name = cup, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 42, name = fork, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 43, name = knife, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 44, name = spoon, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 45, name = bowl, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 46, name = banana, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 47, name = apple, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 48, name = sandwich, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 49, name = orange, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 50, name = broccoli, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 51, name = carrot, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 52, name = hot dog, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 53, name = pizza, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 54, name = donut, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 55, name = cake, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 56, name = chair, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 57, name = sofa, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 58, name = pottedplant, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 59, name = bed, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 60, name = diningtable, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 61, name = toilet, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 62, name = tvmonitor, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 63, name = laptop, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 64, name = mouse, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 65, name = remote, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 66, name = keyboard, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 67, name = cell phone, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 68, name = microwave, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 69, name = oven, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 70, name = toaster, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 71, name = sink, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 72, name = refrigerator, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 73, name = book, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 74, name = clock, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 75, name = vase, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 76, name = scissors, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 77, name = teddy bear, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 78, name = hair drier, ap = 0.00%   	 (TP = 0, FP = 0)
+        class_id = 79, name = toothbrush, ap = 0.00%   	 (TP = 0, FP = 0)
+
+        for conf_thresh = 0.25, precision = -nan, recall = 0.00, F1-score = -nan
+        for conf_thresh = 0.25, TP = 0, FP = 0, FN = 4, average IoU = 0.00 %
+
+        IoU threshold = 50 %, used Area-Under-Curve for each unique Recall
+
+        mean average precision (mAP) = 0.049043, or 4.90 % (2 classes)
+        Total Detection Time: 83 Seconds
+
+        Set -points flag:
+        `-points 101` for MS COCO
+        `-points 11` for PascalVOC 2007 (uncomment `difficult` in voc.data)
+        `-points 0` (AUC) for ImageNet, PascalVOC 2010-2012, your custom dataset
+
+        Scale = 23
+        Building project...
+        GPU isn't used 
+        OpenCV isn't used - data augmentation will be slow 
+        mini_batch = 1, batch = 1, time_steps = 1, train = 0 
+        layer   filters  size/strd(dil)      input                output
+        0 conv     16       3 x 3/ 1    416 x 416 x   3 ->  416 x 416 x  16 0.150 BF
+        1 max                2x 2/ 2    416 x 416 x  16 ->  208 x 208 x  16 0.003 BF
+        2 conv     32       3 x 3/ 1    208 x 208 x  16 ->  208 x 208 x  32 0.399 BF
+        3 max                2x 2/ 2    208 x 208 x  32 ->  104 x 104 x  32 0.001 BF
+        4 conv     64       3 x 3/ 1    104 x 104 x  32 ->  104 x 104 x  64 0.399 BF
+        5 max                2x 2/ 2    104 x 104 x  64 ->   52 x  52 x  64 0.001 BF
+        6 conv    128       3 x 3/ 1     52 x  52 x  64 ->   52 x  52 x 128 0.399 BF
+        7 max                2x 2/ 2     52 x  52 x 128 ->   26 x  26 x 128 0.000 BF
+        8 conv    256       3 x 3/ 1     26 x  26 x 128 ->   26 x  26 x 256 0.399 BF
+        9 max                2x 2/ 2     26 x  26 x 256 ->   13 x  13 x 256 0.000 BF
+        10 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+        11 max                2x 2/ 1     13 x  13 x 512 ->   13 x  13 x 512 0.000 BF
+        12 conv   1024       3 x 3/ 1     13 x  13 x 512 ->   13 x  13 x1024 1.595 BF
+        13 conv    256       1 x 1/ 1     13 x  13 x1024 ->   13 x  13 x 256 0.089 BF
+        14 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+        15 conv    255       1 x 1/ 1     13 x  13 x 512 ->   13 x  13 x 255 0.044 BF
+        16 yolo
+        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+        17 route  13 		                           ->   13 x  13 x 256 
+        18 conv    128       1 x 1/ 1     13 x  13 x 256 ->   13 x  13 x 128 0.011 BF
+        19 upsample                 2x    13 x  13 x 128 ->   26 x  26 x 128
+        20 route  19 8 	                           ->   26 x  26 x 384 
+        21 conv    256       3 x 3/ 1     26 x  26 x 384 ->   26 x  26 x 256 1.196 BF
+        22 conv    255       1 x 1/ 1     26 x  26 x 256 ->   26 x  26 x 255 0.088 BF
+        23 yolo
+        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+        Total BFLOPS 5.571 
+        avg_outputs = 341534 
+
+        calculation mAP (mean average precision)...
+        Detection layer: 16 - type = 28 
+        Detection layer: 23 - type = 28 
+        1
+        detections_count = 154639, unique_truth_count = 4  
+        class_id = 0, name = person, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 1, name = bicycle, ap = 0.05%   	 (TP = 0, FP = 0) 
+        class_id = 2, name = car, ap = 0.06%   	 (TP = 0, FP = 0) 
+        class_id = 3, name = motorbike, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 4, name = aeroplane, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 5, name = bus, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 6, name = train, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 7, name = truck, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 8, name = boat, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 9, name = traffic light, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 10, name = fire hydrant, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 11, name = stop sign, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 12, name = parking meter, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 13, name = bench, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 14, name = bird, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 15, name = cat, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 16, name = dog, ap = 0.06%   	 (TP = 0, FP = 0) 
+        class_id = 17, name = horse, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 18, name = sheep, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 19, name = cow, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 20, name = elephant, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 21, name = bear, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 22, name = zebra, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 23, name = giraffe, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 24, name = backpack, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 25, name = umbrella, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 26, name = handbag, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 27, name = tie, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 28, name = suitcase, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 29, name = frisbee, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 30, name = skis, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 31, name = snowboard, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 32, name = sports ball, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 33, name = kite, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 34, name = baseball bat, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 35, name = baseball glove, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 36, name = skateboard, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 37, name = surfboard, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 38, name = tennis racket, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 39, name = bottle, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 40, name = wine glass, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 41, name = cup, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 42, name = fork, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 43, name = knife, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 44, name = spoon, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 45, name = bowl, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 46, name = banana, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 47, name = apple, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 48, name = sandwich, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 49, name = orange, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 50, name = broccoli, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 51, name = carrot, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 52, name = hot dog, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 53, name = pizza, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 54, name = donut, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 55, name = cake, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 56, name = chair, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 57, name = sofa, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 58, name = pottedplant, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 59, name = bed, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 60, name = diningtable, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 61, name = toilet, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 62, name = tvmonitor, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 63, name = laptop, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 64, name = mouse, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 65, name = remote, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 66, name = keyboard, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 67, name = cell phone, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 68, name = microwave, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 69, name = oven, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 70, name = toaster, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 71, name = sink, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 72, name = refrigerator, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 73, name = book, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 74, name = clock, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 75, name = vase, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 76, name = scissors, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 77, name = teddy bear, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 78, name = hair drier, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 79, name = toothbrush, ap = 0.00%   	 (TP = 0, FP = 0) 
+
+        for conf_thresh = 0.25, precision = -nan, recall = 0.00, F1-score = -nan 
+        for conf_thresh = 0.25, TP = 0, FP = 0, FN = 4, average IoU = 0.00 % 
+
+        IoU threshold = 50 %, used Area-Under-Curve for each unique Recall 
+
+        mean average precision (mAP) = 0.000555, or 0.06 % (3 classes)
+        Total Detection Time: 89 Seconds
+
+        Set -points flag:
+        `-points 101` for MS COCO 
+        `-points 11` for PascalVOC 2007 (uncomment `difficult` in voc.data) 
+        `-points 0` (AUC) for ImageNet, PascalVOC 2010-2012, your custom dataset
+        ./run: line 14: yolov3-tiny.weights: command not found
+        Scale = 24
+        Building project...
+        GPU isn't used 
+        OpenCV isn't used - data augmentation will be slow 
+        mini_batch = 1, batch = 1, time_steps = 1, train = 0 
+        layer   filters  size/strd(dil)      input                output
+        0 conv     16       3 x 3/ 1    416 x 416 x   3 ->  416 x 416 x  16 0.150 BF
+        1 max                2x 2/ 2    416 x 416 x  16 ->  208 x 208 x  16 0.003 BF
+        2 conv     32       3 x 3/ 1    208 x 208 x  16 ->  208 x 208 x  32 0.399 BF
+        3 max                2x 2/ 2    208 x 208 x  32 ->  104 x 104 x  32 0.001 BF
+        4 conv     64       3 x 3/ 1    104 x 104 x  32 ->  104 x 104 x  64 0.399 BF
+        5 max                2x 2/ 2    104 x 104 x  64 ->   52 x  52 x  64 0.001 BF
+        6 conv    128       3 x 3/ 1     52 x  52 x  64 ->   52 x  52 x 128 0.399 BF
+        7 max                2x 2/ 2     52 x  52 x 128 ->   26 x  26 x 128 0.000 BF
+        8 conv    256       3 x 3/ 1     26 x  26 x 128 ->   26 x  26 x 256 0.399 BF
+        9 max                2x 2/ 2     26 x  26 x 256 ->   13 x  13 x 256 0.000 BF
+        10 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+        11 max                2x 2/ 1     13 x  13 x 512 ->   13 x  13 x 512 0.000 BF
+        12 conv   1024       3 x 3/ 1     13 x  13 x 512 ->   13 x  13 x1024 1.595 BF
+        13 conv    256       1 x 1/ 1     13 x  13 x1024 ->   13 x  13 x 256 0.089 BF
+        14 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+        15 conv    255       1 x 1/ 1     13 x  13 x 512 ->   13 x  13 x 255 0.044 BF
+        16 yolo
+        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+        17 route  13 		                           ->   13 x  13 x 256 
+        18 conv    128       1 x 1/ 1     13 x  13 x 256 ->   13 x  13 x 128 0.011 BF
+        19 upsample                 2x    13 x  13 x 128 ->   26 x  26 x 128
+        20 route  19 8 	                           ->   26 x  26 x 384 
+        21 conv    256       3 x 3/ 1     26 x  26 x 384 ->   26 x  26 x 256 1.196 BF
+        22 conv    255       1 x 1/ 1     26 x  26 x 256 ->   26 x  26 x 255 0.088 BF
+        23 yolo
+        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+        Total BFLOPS 5.571 
+        avg_outputs = 341534 
+
+        calculation mAP (mean average precision)...
+        Detection layer: 16 - type = 28 
+        Detection layer: 23 - type = 28 
+        1
+        detections_count = 154639, unique_truth_count = 4  
+        class_id = 0, name = person, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 1, name = bicycle, ap = 0.06%   	 (TP = 0, FP = 0) 
+        class_id = 2, name = car, ap = 0.06%   	 (TP = 0, FP = 0) 
+        class_id = 3, name = motorbike, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 4, name = aeroplane, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 5, name = bus, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 6, name = train, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 7, name = truck, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 8, name = boat, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 9, name = traffic light, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 10, name = fire hydrant, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 11, name = stop sign, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 12, name = parking meter, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 13, name = bench, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 14, name = bird, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 15, name = cat, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 16, name = dog, ap = 0.06%   	 (TP = 0, FP = 0) 
+        class_id = 17, name = horse, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 18, name = sheep, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 19, name = cow, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 20, name = elephant, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 21, name = bear, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 22, name = zebra, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 23, name = giraffe, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 24, name = backpack, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 25, name = umbrella, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 26, name = handbag, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 27, name = tie, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 28, name = suitcase, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 29, name = frisbee, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 30, name = skis, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 31, name = snowboard, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 32, name = sports ball, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 33, name = kite, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 34, name = baseball bat, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 35, name = baseball glove, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 36, name = skateboard, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 37, name = surfboard, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 38, name = tennis racket, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 39, name = bottle, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 40, name = wine glass, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 41, name = cup, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 42, name = fork, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 43, name = knife, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 44, name = spoon, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 45, name = bowl, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 46, name = banana, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 47, name = apple, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 48, name = sandwich, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 49, name = orange, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 50, name = broccoli, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 51, name = carrot, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 52, name = hot dog, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 53, name = pizza, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 54, name = donut, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 55, name = cake, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 56, name = chair, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 57, name = sofa, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 58, name = pottedplant, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 59, name = bed, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 60, name = diningtable, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 61, name = toilet, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 62, name = tvmonitor, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 63, name = laptop, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 64, name = mouse, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 65, name = remote, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 66, name = keyboard, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 67, name = cell phone, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 68, name = microwave, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 69, name = oven, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 70, name = toaster, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 71, name = sink, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 72, name = refrigerator, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 73, name = book, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 74, name = clock, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 75, name = vase, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 76, name = scissors, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 77, name = teddy bear, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 78, name = hair drier, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 79, name = toothbrush, ap = 0.00%   	 (TP = 0, FP = 0) 
+
+        for conf_thresh = 0.25, precision = -nan, recall = 0.00, F1-score = -nan 
+        for conf_thresh = 0.25, TP = 0, FP = 0, FN = 4, average IoU = 0.00 % 
+
+        IoU threshold = 50 %, used Area-Under-Curve for each unique Recall 
+
+        mean average precision (mAP) = 0.000572, or 0.06 % (3 classes)
+        Total Detection Time: 88 Seconds
+
+        Set -points flag:
+        `-points 101` for MS COCO 
+        `-points 11` for PascalVOC 2007 (uncomment `difficult` in voc.data) 
+        `-points 0` (AUC) for ImageNet, PascalVOC 2010-2012, your custom dataset
+        ./run: line 14: yolov3-tiny.weights: command not found
+        Scale = 25
+        Building project...
+        GPU isn't used 
+        OpenCV isn't used - data augmentation will be slow 
+        mini_batch = 1, batch = 1, time_steps = 1, train = 0 
+        layer   filters  size/strd(dil)      input                output
+        0 conv     16       3 x 3/ 1    416 x 416 x   3 ->  416 x 416 x  16 0.150 BF
+        1 max                2x 2/ 2    416 x 416 x  16 ->  208 x 208 x  16 0.003 BF
+        2 conv     32       3 x 3/ 1    208 x 208 x  16 ->  208 x 208 x  32 0.399 BF
+        3 max                2x 2/ 2    208 x 208 x  32 ->  104 x 104 x  32 0.001 BF
+        4 conv     64       3 x 3/ 1    104 x 104 x  32 ->  104 x 104 x  64 0.399 BF
+        5 max                2x 2/ 2    104 x 104 x  64 ->   52 x  52 x  64 0.001 BF
+        6 conv    128       3 x 3/ 1     52 x  52 x  64 ->   52 x  52 x 128 0.399 BF
+        7 max                2x 2/ 2     52 x  52 x 128 ->   26 x  26 x 128 0.000 BF
+        8 conv    256       3 x 3/ 1     26 x  26 x 128 ->   26 x  26 x 256 0.399 BF
+        9 max                2x 2/ 2     26 x  26 x 256 ->   13 x  13 x 256 0.000 BF
+        10 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+        11 max                2x 2/ 1     13 x  13 x 512 ->   13 x  13 x 512 0.000 BF
+        12 conv   1024       3 x 3/ 1     13 x  13 x 512 ->   13 x  13 x1024 1.595 BF
+        13 conv    256       1 x 1/ 1     13 x  13 x1024 ->   13 x  13 x 256 0.089 BF
+        14 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+        15 conv    255       1 x 1/ 1     13 x  13 x 512 ->   13 x  13 x 255 0.044 BF
+        16 yolo
+        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+        17 route  13 		                           ->   13 x  13 x 256 
+        18 conv    128       1 x 1/ 1     13 x  13 x 256 ->   13 x  13 x 128 0.011 BF
+        19 upsample                 2x    13 x  13 x 128 ->   26 x  26 x 128
+        20 route  19 8 	                           ->   26 x  26 x 384 
+        21 conv    256       3 x 3/ 1     26 x  26 x 384 ->   26 x  26 x 256 1.196 BF
+        22 conv    255       1 x 1/ 1     26 x  26 x 256 ->   26 x  26 x 255 0.088 BF
+        23 yolo
+        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+        Total BFLOPS 5.571 
+        avg_outputs = 341534 
+
+        calculation mAP (mean average precision)...
+        Detection layer: 16 - type = 28 
+        Detection layer: 23 - type = 28 
+        1
+        detections_count = 154639, unique_truth_count = 4  
+        class_id = 0, name = person, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 1, name = bicycle, ap = 0.05%   	 (TP = 0, FP = 0) 
+        class_id = 2, name = car, ap = 0.06%   	 (TP = 0, FP = 0) 
+        class_id = 3, name = motorbike, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 4, name = aeroplane, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 5, name = bus, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 6, name = train, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 7, name = truck, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 8, name = boat, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 9, name = traffic light, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 10, name = fire hydrant, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 11, name = stop sign, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 12, name = parking meter, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 13, name = bench, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 14, name = bird, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 15, name = cat, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 16, name = dog, ap = 0.05%   	 (TP = 0, FP = 0) 
+        class_id = 17, name = horse, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 18, name = sheep, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 19, name = cow, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 20, name = elephant, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 21, name = bear, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 22, name = zebra, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 23, name = giraffe, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 24, name = backpack, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 25, name = umbrella, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 26, name = handbag, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 27, name = tie, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 28, name = suitcase, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 29, name = frisbee, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 30, name = skis, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 31, name = snowboard, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 32, name = sports ball, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 33, name = kite, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 34, name = baseball bat, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 35, name = baseball glove, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 36, name = skateboard, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 37, name = surfboard, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 38, name = tennis racket, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 39, name = bottle, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 40, name = wine glass, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 41, name = cup, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 42, name = fork, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 43, name = knife, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 44, name = spoon, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 45, name = bowl, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 46, name = banana, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 47, name = apple, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 48, name = sandwich, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 49, name = orange, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 50, name = broccoli, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 51, name = carrot, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 52, name = hot dog, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 53, name = pizza, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 54, name = donut, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 55, name = cake, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 56, name = chair, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 57, name = sofa, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 58, name = pottedplant, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 59, name = bed, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 60, name = diningtable, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 61, name = toilet, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 62, name = tvmonitor, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 63, name = laptop, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 64, name = mouse, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 65, name = remote, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 66, name = keyboard, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 67, name = cell phone, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 68, name = microwave, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 69, name = oven, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 70, name = toaster, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 71, name = sink, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 72, name = refrigerator, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 73, name = book, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 74, name = clock, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 75, name = vase, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 76, name = scissors, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 77, name = teddy bear, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 78, name = hair drier, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 79, name = toothbrush, ap = 0.00%   	 (TP = 0, FP = 0) 
+
+        for conf_thresh = 0.25, precision = -nan, recall = 0.00, F1-score = -nan 
+        for conf_thresh = 0.25, TP = 0, FP = 0, FN = 4, average IoU = 0.00 % 
+
+        IoU threshold = 50 %, used Area-Under-Curve for each unique Recall 
+
+        mean average precision (mAP) = 0.000543, or 0.05 % (3 classes)
+        Total Detection Time: 84 Seconds
+
+        Set -points flag:
+        `-points 101` for MS COCO 
+        `-points 11` for PascalVOC 2007 (uncomment `difficult` in voc.data) 
+        `-points 0` (AUC) for ImageNet, PascalVOC 2010-2012, your custom dataset
+        ./run: line 14: yolov3-tiny.weights: command not found
+        Scale = 26
+        Building project...
+        GPU isn't used 
+        OpenCV isn't used - data augmentation will be slow 
+        mini_batch = 1, batch = 1, time_steps = 1, train = 0 
+        layer   filters  size/strd(dil)      input                output
+        0 conv     16       3 x 3/ 1    416 x 416 x   3 ->  416 x 416 x  16 0.150 BF
+        1 max                2x 2/ 2    416 x 416 x  16 ->  208 x 208 x  16 0.003 BF
+        2 conv     32       3 x 3/ 1    208 x 208 x  16 ->  208 x 208 x  32 0.399 BF
+        3 max                2x 2/ 2    208 x 208 x  32 ->  104 x 104 x  32 0.001 BF
+        4 conv     64       3 x 3/ 1    104 x 104 x  32 ->  104 x 104 x  64 0.399 BF
+        5 max                2x 2/ 2    104 x 104 x  64 ->   52 x  52 x  64 0.001 BF
+        6 conv    128       3 x 3/ 1     52 x  52 x  64 ->   52 x  52 x 128 0.399 BF
+        7 max                2x 2/ 2     52 x  52 x 128 ->   26 x  26 x 128 0.000 BF
+        8 conv    256       3 x 3/ 1     26 x  26 x 128 ->   26 x  26 x 256 0.399 BF
+        9 max                2x 2/ 2     26 x  26 x 256 ->   13 x  13 x 256 0.000 BF
+        10 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+        11 max                2x 2/ 1     13 x  13 x 512 ->   13 x  13 x 512 0.000 BF
+        12 conv   1024       3 x 3/ 1     13 x  13 x 512 ->   13 x  13 x1024 1.595 BF
+        13 conv    256       1 x 1/ 1     13 x  13 x1024 ->   13 x  13 x 256 0.089 BF
+        14 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+        15 conv    255       1 x 1/ 1     13 x  13 x 512 ->   13 x  13 x 255 0.044 BF
+        16 yolo
+        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+        17 route  13 		                           ->   13 x  13 x 256 
+        18 conv    128       1 x 1/ 1     13 x  13 x 256 ->   13 x  13 x 128 0.011 BF
+        19 upsample                 2x    13 x  13 x 128 ->   26 x  26 x 128
+        20 route  19 8 	                           ->   26 x  26 x 384 
+        21 conv    256       3 x 3/ 1     26 x  26 x 384 ->   26 x  26 x 256 1.196 BF
+        22 conv    255       1 x 1/ 1     26 x  26 x 256 ->   26 x  26 x 255 0.088 BF
+        23 yolo
+        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+        Total BFLOPS 5.571 
+        avg_outputs = 341534 
+
+        calculation mAP (mean average precision)...
+        Detection layer: 16 - type = 28 
+        Detection layer: 23 - type = 28 
+        1
+
+        detections_count = 154639, unique_truth_count = 4  
+        class_id = 0, name = person, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 1, name = bicycle, ap = 0.05%   	 (TP = 0, FP = 0) 
+        class_id = 2, name = car, ap = 0.06%   	 (TP = 0, FP = 0) 
+        class_id = 3, name = motorbike, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 4, name = aeroplane, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 5, name = bus, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 6, name = train, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 7, name = truck, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 8, name = boat, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 9, name = traffic light, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 10, name = fire hydrant, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 11, name = stop sign, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 12, name = parking meter, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 13, name = bench, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 14, name = bird, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 15, name = cat, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 16, name = dog, ap = 0.05%   	 (TP = 0, FP = 0) 
+        class_id = 17, name = horse, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 18, name = sheep, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 19, name = cow, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 20, name = elephant, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 21, name = bear, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 22, name = zebra, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 23, name = giraffe, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 24, name = backpack, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 25, name = umbrella, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 26, name = handbag, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 27, name = tie, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 28, name = suitcase, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 29, name = frisbee, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 30, name = skis, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 31, name = snowboard, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 32, name = sports ball, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 33, name = kite, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 34, name = baseball bat, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 35, name = baseball glove, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 36, name = skateboard, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 37, name = surfboard, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 38, name = tennis racket, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 39, name = bottle, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 40, name = wine glass, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 41, name = cup, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 42, name = fork, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 43, name = knife, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 44, name = spoon, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 45, name = bowl, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 46, name = banana, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 47, name = apple, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 48, name = sandwich, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 49, name = orange, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 50, name = broccoli, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 51, name = carrot, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 52, name = hot dog, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 53, name = pizza, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 54, name = donut, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 55, name = cake, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 56, name = chair, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 57, name = sofa, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 58, name = pottedplant, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 59, name = bed, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 60, name = diningtable, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 61, name = toilet, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 62, name = tvmonitor, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 63, name = laptop, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 64, name = mouse, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 65, name = remote, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 66, name = keyboard, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 67, name = cell phone, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 68, name = microwave, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 69, name = oven, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 70, name = toaster, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 71, name = sink, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 72, name = refrigerator, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 73, name = book, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 74, name = clock, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 75, name = vase, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 76, name = scissors, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 77, name = teddy bear, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 78, name = hair drier, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 79, name = toothbrush, ap = 0.00%   	 (TP = 0, FP = 0) 
+
+        for conf_thresh = 0.25, precision = -nan, recall = 0.00, F1-score = -nan 
+        for conf_thresh = 0.25, TP = 0, FP = 0, FN = 4, average IoU = 0.00 % 
+
+        IoU threshold = 50 %, used Area-Under-Curve for each unique Recall 
+
+        mean average precision (mAP) = 0.000544, or 0.05 % (3 classes)
+        Total Detection Time: 86 Seconds
+
+        Set -points flag:
+        `-points 101` for MS COCO 
+        `-points 11` for PascalVOC 2007 (uncomment `difficult` in voc.data) 
+        `-points 0` (AUC) for ImageNet, PascalVOC 2010-2012, your custom dataset
+        ./run: line 14: yolov3-tiny.weights: command not found
+        Scale = 27
+        Building project...
+        GPU isn't used 
+        OpenCV isn't used - data augmentation will be slow 
+        mini_batch = 1, batch = 1, time_steps = 1, train = 0 
+        layer   filters  size/strd(dil)      input                output
+        0 conv     16       3 x 3/ 1    416 x 416 x   3 ->  416 x 416 x  16 0.150 BF
+        1 max                2x 2/ 2    416 x 416 x  16 ->  208 x 208 x  16 0.003 BF
+        2 conv     32       3 x 3/ 1    208 x 208 x  16 ->  208 x 208 x  32 0.399 BF
+        3 max                2x 2/ 2    208 x 208 x  32 ->  104 x 104 x  32 0.001 BF
+        4 conv     64       3 x 3/ 1    104 x 104 x  32 ->  104 x 104 x  64 0.399 BF
+        5 max                2x 2/ 2    104 x 104 x  64 ->   52 x  52 x  64 0.001 BF
+        6 conv    128       3 x 3/ 1     52 x  52 x  64 ->   52 x  52 x 128 0.399 BF
+        7 max                2x 2/ 2     52 x  52 x 128 ->   26 x  26 x 128 0.000 BF
+        8 conv    256       3 x 3/ 1     26 x  26 x 128 ->   26 x  26 x 256 0.399 BF
+        9 max                2x 2/ 2     26 x  26 x 256 ->   13 x  13 x 256 0.000 BF
+        10 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+        11 max                2x 2/ 1     13 x  13 x 512 ->   13 x  13 x 512 0.000 BF
+        12 conv   1024       3 x 3/ 1     13 x  13 x 512 ->   13 x  13 x1024 1.595 BF
+        13 conv    256       1 x 1/ 1     13 x  13 x1024 ->   13 x  13 x 256 0.089 BF
+        14 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+        15 conv    255       1 x 1/ 1     13 x  13 x 512 ->   13 x  13 x 255 0.044 BF
+        16 yolo
+        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+        17 route  13 		                           ->   13 x  13 x 256 
+        18 conv    128       1 x 1/ 1     13 x  13 x 256 ->   13 x  13 x 128 0.011 BF
+        19 upsample                 2x    13 x  13 x 128 ->   26 x  26 x 128
+        20 route  19 8 	                           ->   26 x  26 x 384 
+        21 conv    256       3 x 3/ 1     26 x  26 x 384 ->   26 x  26 x 256 1.196 BF
+        22 conv    255       1 x 1/ 1     26 x  26 x 256 ->   26 x  26 x 255 0.088 BF
+        23 yolo
+        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+        Total BFLOPS 5.571 
+        avg_outputs = 341534 
+
+        calculation mAP (mean average precision)...
+        Detection layer: 16 - type = 28 
+        Detection layer: 23 - type = 28 
+        1
+        detections_count = 154639, unique_truth_count = 4  
+        class_id = 0, name = person, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 1, name = bicycle, ap = 0.80%   	 (TP = 0, FP = 0) 
+        class_id = 2, name = car, ap = 1.85%   	 (TP = 0, FP = 0) 
+        class_id = 3, name = motorbike, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 4, name = aeroplane, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 5, name = bus, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 6, name = train, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 7, name = truck, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 8, name = boat, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 9, name = traffic light, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 10, name = fire hydrant, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 11, name = stop sign, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 12, name = parking meter, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 13, name = bench, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 14, name = bird, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 15, name = cat, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 16, name = dog, ap = 0.71%   	 (TP = 0, FP = 0) 
+        class_id = 17, name = horse, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 18, name = sheep, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 19, name = cow, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 20, name = elephant, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 21, name = bear, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 22, name = zebra, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 23, name = giraffe, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 24, name = backpack, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 25, name = umbrella, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 26, name = handbag, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 27, name = tie, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 28, name = suitcase, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 29, name = frisbee, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 30, name = skis, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 31, name = snowboard, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 32, name = sports ball, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 33, name = kite, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 34, name = baseball bat, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 35, name = baseball glove, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 36, name = skateboard, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 37, name = surfboard, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 38, name = tennis racket, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 39, name = bottle, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 40, name = wine glass, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 41, name = cup, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 42, name = fork, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 43, name = knife, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 44, name = spoon, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 45, name = bowl, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 46, name = banana, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 47, name = apple, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 48, name = sandwich, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 49, name = orange, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 50, name = broccoli, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 51, name = carrot, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 52, name = hot dog, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 53, name = pizza, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 54, name = donut, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 55, name = cake, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 56, name = chair, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 57, name = sofa, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 58, name = pottedplant, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 59, name = bed, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 60, name = diningtable, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 61, name = toilet, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 62, name = tvmonitor, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 63, name = laptop, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 64, name = mouse, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 65, name = remote, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 66, name = keyboard, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 67, name = cell phone, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 68, name = microwave, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 69, name = oven, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 70, name = toaster, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 71, name = sink, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 72, name = refrigerator, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 73, name = book, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 74, name = clock, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 75, name = vase, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 76, name = scissors, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 77, name = teddy bear, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 78, name = hair drier, ap = 0.00%   	 (TP = 0, FP = 0) 
+        class_id = 79, name = toothbrush, ap = 0.00%   	 (TP = 0, FP = 0) 
+
+        for conf_thresh = 0.25, precision = -nan, recall = 0.00, F1-score = -nan 
+        for conf_thresh = 0.25, TP = 0, FP = 0, FN = 4, average IoU = 0.00 % 
+
+        IoU threshold = 50 %, used Area-Under-Curve for each unique Recall 
+
+        mean average precision (mAP) = 0.011204, or 1.12 % (3 classes)
+        Total Detection Time: 81 Seconds
+
+        Set -points flag:
+        `-points 101` for MS COCO 
+        `-points 11` for PascalVOC 2007 (uncomment `difficult` in voc.data) 
+        `-points 0` (AUC) for ImageNet, PascalVOC 2010-2012, your custom dataset
+        ./run: line 14: yolov3-tiny.weights: command not found
+        ```
+
+        </p>
+        </details>
 
 * For a graceful shutdown, please use the fillowing command
     ```bash

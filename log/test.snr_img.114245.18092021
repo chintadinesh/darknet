@@ -1,0 +1,456 @@
+ GPU isn't used 
+ OpenCV isn't used - data augmentation will be slow 
+   layer   filters  size/strd(dil)      input                output
+   0 conv     16       3 x 3/ 1    416 x 416 x   3 ->  416 x 416 x  16 0.150 BF
+   1 max                2x 2/ 2    416 x 416 x  16 ->  208 x 208 x  16 0.003 BF
+   2 conv     32       3 x 3/ 1    208 x 208 x  16 ->  208 x 208 x  32 0.399 BF
+   3 max                2x 2/ 2    208 x 208 x  32 ->  104 x 104 x  32 0.001 BF
+   4 conv     64       3 x 3/ 1    104 x 104 x  32 ->  104 x 104 x  64 0.399 BF
+   5 max                2x 2/ 2    104 x 104 x  64 ->   52 x  52 x  64 0.001 BF
+   6 conv    128       3 x 3/ 1     52 x  52 x  64 ->   52 x  52 x 128 0.399 BF
+   7 max                2x 2/ 2     52 x  52 x 128 ->   26 x  26 x 128 0.000 BF
+   8 conv    256       3 x 3/ 1     26 x  26 x 128 ->   26 x  26 x 256 0.399 BF
+   9 max                2x 2/ 2     26 x  26 x 256 ->   13 x  13 x 256 0.000 BF
+  10 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+  11 max                2x 2/ 1     13 x  13 x 512 ->   13 x  13 x 512 0.000 BF
+  12 conv   1024       3 x 3/ 1     13 x  13 x 512 ->   13 x  13 x1024 1.595 BF
+  13 conv    256       1 x 1/ 1     13 x  13 x1024 ->   13 x  13 x 256 0.089 BF
+  14 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+  15 conv    255       1 x 1/ 1     13 x  13 x 512 ->   13 x  13 x 255 0.044 BF
+  16 yolo
+[yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+  17 route  13 		                           ->   13 x  13 x 256 
+  18 conv    128       1 x 1/ 1     13 x  13 x 256 ->   13 x  13 x 128 0.011 BF
+  19 upsample                 2x    13 x  13 x 128 ->   26 x  26 x 128
+  20 route  19 8 	                           ->   26 x  26 x 384 
+  21 conv    256       3 x 3/ 1     26 x  26 x 384 ->   26 x  26 x 256 1.196 BF
+  22 conv    255       1 x 1/ 1     26 x  26 x 256 ->   26 x  26 x 255 0.088 BF
+  23 yolo
+[yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+Total BFLOPS 5.571 
+avg_outputs = 341534 
+Loading weights from yolov3-tiny.weights...mini_batch = 1, batch = 1, time_steps = 1, train = 0 
+Done! Loaded 24 layers from weights-file 
+
+ seen 64, trained: 32013 K-images (500 Kilo-batches_64) 
+ Detection layer: 16 - type = 28 
+ Detection layer: 23 - type = 28 
+[DEBUG] Computing snr for scale = 16
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum = 57100.245373
+[RESULT] scale = 16; snr = -inf
+
+[DEBUG] Computing snr for scale = 17
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum = 13318.956324
+[RESULT] scale = 17; snr = -inf
+
+[DEBUG] Computing snr for scale = 18
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum = 10300.735351
+[RESULT] scale = 18; snr = -inf
+
+[DEBUG] Computing snr for scale = 19
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =  81.712041
+[RESULT] scale = 19; snr = -inf
+
+[DEBUG] Computing snr for scale = 20
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =  36.172364
+[RESULT] scale = 20; snr = -inf
+
+[DEBUG] Computing snr for scale = 21
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   6.445854
+[RESULT] scale = 21; snr = -inf
+
+[DEBUG] Computing snr for scale = 22
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.005540
+[RESULT] scale = 22; snr = -inf
+
+[DEBUG] Computing snr for scale = 23
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.000651
+[RESULT] scale = 23; snr = -inf
+
+[DEBUG] Computing snr for scale = 24
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.000010
+[RESULT] scale = 24; snr = -inf
+
+[DEBUG] Computing snr for scale = 25
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.000010
+[RESULT] scale = 25; snr = -inf
+
+[DEBUG] Computing snr for scale = 26
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.000001
+[RESULT] scale = 26; snr = -inf
+
+[DEBUG] Computing snr for scale = 27
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.000000
+[RESULT] scale = 27; snr = -inf
+
+[DEBUG] Computing snr for scale = 28
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.000000
+[RESULT] scale = 28; snr = -inf
+
+[DEBUG] Computing snr for scale = 29
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.000000
+[RESULT] scale = 29; snr = -inf
+
+[DEBUG] Computing snr for scale = 16
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum = 518060.244119
+[RESULT] scale = 16; snr = -inf
+
+[DEBUG] Computing snr for scale = 17
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum = 1834987.005637
+[RESULT] scale = 17; snr = -inf
+
+[DEBUG] Computing snr for scale = 18
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum = 1185.272395
+[RESULT] scale = 18; snr = -inf
+
+[DEBUG] Computing snr for scale = 19
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum = 17604.911892
+[RESULT] scale = 19; snr = -inf
+
+[DEBUG] Computing snr for scale = 20
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum = 350.971773
+[RESULT] scale = 20; snr = -inf
+
+[DEBUG] Computing snr for scale = 21
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   6.682821
+[RESULT] scale = 21; snr = -inf
+
+[DEBUG] Computing snr for scale = 22
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.451674
+[RESULT] scale = 22; snr = -inf
+
+[DEBUG] Computing snr for scale = 23
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.015222
+[RESULT] scale = 23; snr = -inf
+
+[DEBUG] Computing snr for scale = 24
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.003049
+[RESULT] scale = 24; snr = -inf
+
+[DEBUG] Computing snr for scale = 25
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.000379
+[RESULT] scale = 25; snr = -inf
+
+[DEBUG] Computing snr for scale = 26
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.000000
+[RESULT] scale = 26; snr = -inf
+
+[DEBUG] Computing snr for scale = 27
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.000001
+[RESULT] scale = 27; snr = -inf
+
+[DEBUG] Computing snr for scale = 28
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.000000
+[RESULT] scale = 28; snr = -inf
+
+[DEBUG] Computing snr for scale = 29
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.000000
+[RESULT] scale = 29; snr = -inf
+
+[DEBUG] Computing snr for scale = 16
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum = 332124.337175
+[RESULT] scale = 16; snr = -inf
+
+[DEBUG] Computing snr for scale = 17
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum = 641687.865743
+[RESULT] scale = 17; snr = -inf
+
+[DEBUG] Computing snr for scale = 18
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum = 39603.650152
+[RESULT] scale = 18; snr = -inf
+
+[DEBUG] Computing snr for scale = 19
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum = 2737.910488
+[RESULT] scale = 19; snr = -inf
+
+[DEBUG] Computing snr for scale = 20
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   8.528919
+[RESULT] scale = 20; snr = -inf
+
+[DEBUG] Computing snr for scale = 21
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   6.619486
+[RESULT] scale = 21; snr = -inf
+
+[DEBUG] Computing snr for scale = 22
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.615894
+[RESULT] scale = 22; snr = -inf
+
+[DEBUG] Computing snr for scale = 23
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.127918
+[RESULT] scale = 23; snr = -inf
+
+[DEBUG] Computing snr for scale = 24
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.003153
+[RESULT] scale = 24; snr = -inf
+
+[DEBUG] Computing snr for scale = 25
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.000206
+[RESULT] scale = 25; snr = -inf
+
+[DEBUG] Computing snr for scale = 26
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.000000
+[RESULT] scale = 26; snr = -inf
+
+[DEBUG] Computing snr for scale = 27
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.000000
+[RESULT] scale = 27; snr = -inf
+
+[DEBUG] Computing snr for scale = 28
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.000000
+[RESULT] scale = 28; snr = -inf
+
+[DEBUG] Computing snr for scale = 29
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.000000
+[RESULT] scale = 29; snr = -inf
+
+[DEBUG] Computing snr for scale = 16
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum = 6549841.570315
+[RESULT] scale = 16; snr = -inf
+
+[DEBUG] Computing snr for scale = 17
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum = 810260.681124
+[RESULT] scale = 17; snr = -inf
+
+[DEBUG] Computing snr for scale = 18
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum = 25656.901200
+[RESULT] scale = 18; snr = -inf
+
+[DEBUG] Computing snr for scale = 19
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum = 2267.116106
+[RESULT] scale = 19; snr = -inf
+
+[DEBUG] Computing snr for scale = 20
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum = 297.067068
+[RESULT] scale = 20; snr = -inf
+
+[DEBUG] Computing snr for scale = 21
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   3.758279
+[RESULT] scale = 21; snr = -inf
+
+[DEBUG] Computing snr for scale = 22
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   2.328358
+[RESULT] scale = 22; snr = -inf
+
+[DEBUG] Computing snr for scale = 23
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.021450
+[RESULT] scale = 23; snr = -inf
+
+[DEBUG] Computing snr for scale = 24
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.005061
+[RESULT] scale = 24; snr = -inf
+
+[DEBUG] Computing snr for scale = 25
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.000242
+[RESULT] scale = 25; snr = -inf
+
+[DEBUG] Computing snr for scale = 26
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.000016
+[RESULT] scale = 26; snr = -inf
+
+[DEBUG] Computing snr for scale = 27
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.000002
+[RESULT] scale = 27; snr = -inf
+
+[DEBUG] Computing snr for scale = 28
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.000000
+[RESULT] scale = 28; snr = -inf
+
+[DEBUG] Computing snr for scale = 29
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum =   0.000000
+[RESULT] scale = 29; snr = -inf
+
+[DEBUG] Computing snr for scale = 16
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum = 1802428.102007
+[RESULT] scale = 16; snr = -inf
+
+[DEBUG] Computing snr for scale = 17
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum = 468656.829556
+[RESULT] scale = 17; snr = -inf
+
+[DEBUG] Computing snr for scale = 18
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum = 27874.547797
+[RESULT] scale = 18; snr = -inf
+
+[DEBUG] Computing snr for scale = 19
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum =   0.000000
+[RESULT] diff_sum = 2237.158777
+[RESULT] scale = 19; snr = -in

@@ -1,0 +1,162 @@
+ GPU isn't used 
+ OpenCV isn't used - data augmentation will be slow 
+   layer   filters  size/strd(dil)      input                output
+   0 conv     16       3 x 3/ 1    416 x 416 x   3 ->  416 x 416 x  16 0.150 BF
+   1 max                2x 2/ 2    416 x 416 x  16 ->  208 x 208 x  16 0.003 BF
+   2 conv     32       3 x 3/ 1    208 x 208 x  16 ->  208 x 208 x  32 0.399 BF
+   3 max                2x 2/ 2    208 x 208 x  32 ->  104 x 104 x  32 0.001 BF
+   4 conv     64       3 x 3/ 1    104 x 104 x  32 ->  104 x 104 x  64 0.399 BF
+   5 max                2x 2/ 2    104 x 104 x  64 ->   52 x  52 x  64 0.001 BF
+   6 conv    128       3 x 3/ 1     52 x  52 x  64 ->   52 x  52 x 128 0.399 BF
+   7 max                2x 2/ 2     52 x  52 x 128 ->   26 x  26 x 128 0.000 BF
+   8 conv    256       3 x 3/ 1     26 x  26 x 128 ->   26 x  26 x 256 0.399 BF
+   9 max                2x 2/ 2     26 x  26 x 256 ->   13 x  13 x 256 0.000 BF
+  10 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+  11 max                2x 2/ 1     13 x  13 x 512 ->   13 x  13 x 512 0.000 BF
+  12 conv   1024       3 x 3/ 1     13 x  13 x 512 ->   13 x  13 x1024 1.595 BF
+  13 conv    256       1 x 1/ 1     13 x  13 x1024 ->   13 x  13 x 256 0.089 BF
+  14 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+  15 conv    255       1 x 1/ 1     13 x  13 x 512 ->   13 x  13 x 255 0.044 BF
+  16 yolo
+[yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+  17 route  13 		                           ->   13 x  13 x 256 
+  18 conv    128       1 x 1/ 1     13 x  13 x 256 ->   13 x  13 x 128 0.011 BF
+  19 upsample                 2x    13 x  13 x 128 ->   26 x  26 x 128
+  20 route  19 8 	                           ->   26 x  26 x 384 
+  21 conv    256       3 x 3/ 1     26 x  26 x 384 ->   26 x  26 x 256 1.196 BF
+  22 conv    255       1 x 1/ 1     26 x  26 x 256 ->   26 x  26 x 255 0.088 BF
+  23 yolo
+[yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+Total BFLOPS 5.571 
+avg_outputs = 341534 
+Loading weights from yolov3-tiny.weights...mini_batch = 1, batch = 1, time_steps = 1, train = 0 
+Done! Loaded 24 layers from weights-file 
+Not compiled with OpenCV, saving to predictions.png instead
+
+ seen 64, trained: 32013 K-images (500 Kilo-batches_64) 
+ Detection layer: 16 - type = 28 
+ Detection layer: 23 - type = 28 
+data/dog.jpg: Predicted in 2042.528000 milli-seconds.
+cat: 27%
+bicycle: 38%
+car: 30%
+dog: 31%
+chair: 31%
+motorbike: 34%
+bicycle: 29%
+car: 30%
+aeroplane: 32%
+bus: 27%
+truck: 30%
+boat: 27%
+snowboard: 27%
+kite: 31%
+chair: 25%
+motorbike: 47%
+person: 43%
+bicycle: 35%
+car: 45%
+aeroplane: 45%
+bus: 42%
+truck: 43%
+boat: 32%
+traffic light: 30%
+bench: 28%
+umbrella: 28%
+snowboard: 29%
+kite: 44%
+skateboard: 38%
+chair: 33%
+motorbike: 30%
+person: 28%
+car: 26%
+aeroplane: 26%
+truck: 26%
+kite: 26%
+skateboard: 25%
+dog: 46%
+bird: 31%
+cat: 34%
+cat: 69%
+dog: 74%
+bicycle: 32%
+bicycle: 57%
+dog: 45%
+bicycle: 28%
+cat: 31%
+dog: 78%
+dog: 28%
+bicycle: 44%
+bench: 43%
+bird: 44%
+dog: 30%
+horse: 27%
+zebra: 42%
+backpack: 41%
+kite: 26%
+baseball glove: 42%
+skateboard: 25%
+tennis racket: 34%
+chair: 34%
+bicycle: 31%
+bird: 28%
+zebra: 28%
+backpack: 26%
+baseball glove: 26%
+tennis racket: 27%
+dog: 58%
+bicycle: 57%
+bicycle: 74%
+dog: 42%
+car: 28%
+person: 26%
+bicycle: 30%
+car: 29%
+fire hydrant: 26%
+parking meter: 26%
+bird: 26%
+zebra: 27%
+car: 29%
+fire hydrant: 27%
+parking meter: 27%
+car: 27%
+car: 51%
+truck: 43%
+car: 58%
+truck: 45%
+bicycle: 33%
+car: 29%
+car: 27%
+car: 36%
+truck: 26%
+car: 41%
+bus: 28%
+truck: 34%
+car: 57%
+truck: 52%
+car: 96%
+truck: 79%
+car: 32%
+truck: 27%
+car: 58%
+truck: 49%
+car: 74%
+truck: 70%
+car: 43%
+truck: 25%
+truck: 89%
+car: 89%
+truck: 54%
+car: 54%
+car: 38%
+truck: 29%
+car: 61%
+truck: 38%
+car: 38%
+truck: 33%
+car: 32%
+car: 38%
+truck: 25%
+car: 48%
+truck: 31%
+car: 30%

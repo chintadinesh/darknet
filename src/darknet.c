@@ -12,6 +12,27 @@
 #include "blas.h"
 #include "connected_layer.h"
 
+#include "snr_test.h"
+
+//#define _GEMTEST
+
+float maximum = 0;
+float minimum = 0;
+
+// To print cout to a file
+bool save_output = 0;
+
+// These variables are excluse of one another
+bool use_fx_conv = 0;
+bool use_cnative_round = 0;
+bool use_withscale_int_round = 1;
+
+// This variable modifes scale while calculating snr
+// It is expected to have all the above variable set to zero while doing snr
+// experiments
+bool calclate_snr_for_img = 0;
+
+int scale = 13; // based on the best mAP got
 
 extern void predict_classifier(char *datacfg, char *cfgfile, char *weightfile, char *filename, int top);
 extern void run_voxel(int argc, char **argv);
@@ -32,9 +53,6 @@ extern void run_go(int argc, char **argv);
 extern void run_art(int argc, char **argv);
 extern void run_super(int argc, char **argv);
 
-
-float maximum = 0;
-float minimum = 0;
 
 void average(int argc, char *argv[])
 {
@@ -435,6 +453,7 @@ void visualize(char *cfgfile, char *weightfile)
 
 int main(int argc, char **argv)
 {
+
 #ifdef _DEBUG
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
     printf(" _DEBUG is used \n");
@@ -444,6 +463,7 @@ int main(int argc, char **argv)
     printf(" DEBUG=1 \n");
 #endif
 
+#ifndef _GEMTEST
 	int i;
 	for (i = 0; i < argc; ++i) {
 		if (!argv[i]) continue;
@@ -559,6 +579,12 @@ int main(int argc, char **argv)
     } else {
         fprintf(stderr, "Not an option: %s\n", argv[1]);
     }
+#endif
+
+#ifdef _GEMTEST
+    printf("\n[DEBUG] Testing our gemm operation\n");
+    test_gemm_matt();
+#endif
 
     //printf("\n[DEBUG] Discovered max = %f, min = %f\n", maximum, minimum);
     return 0;

@@ -1,0 +1,96 @@
+
+[DEBUG] Testing our gemm operation
+[DEBUG] Allocating memory for matrices
+[DEBUG] Reading matrices from the file
+[DEBUG] Expected_length = 256, read_length = 256
+[DEBUG] Read 256 nums for A
+[DEBUG] Expected_length = 173056, read_length = 173056
+[DEBUG] Read 173056 nums for B
+[DEBUG] Expected_length = 676, read_length = 676
+[DEBUG] Read 676 nums for Cin
+[DEBUG] Expected_length = 676, read_length = 676
+[DEBUG] Read 676 lines for Cout
+[DEBUG] Computing snr for scale = 8
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum = 221.128766
+[RESULT] diff_sum =  35.606470
+[RESULT] scale = 8; snr = 18.262178
+
+[DEBUG] Computing snr for scale = 9
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum = 221.128766
+[RESULT] diff_sum =  16.831653
+[RESULT] scale = 9; snr = 25.754839
+
+[DEBUG] Computing snr for scale = 10
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum = 221.128766
+[RESULT] diff_sum =   4.519072
+[RESULT] scale = 10; snr = 38.904385
+
+[DEBUG] Computing snr for scale = 11
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum = 221.128766
+[RESULT] diff_sum =   1.426846
+[RESULT] scale = 11; snr = 50.432785
+
+[DEBUG] Computing snr for scale = 12
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum = 221.128766
+[RESULT] diff_sum =   0.355382
+[RESULT] scale = 12; snr = 64.333061
+
+[DEBUG] Computing snr for scale = 13
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum = 221.128766
+[RESULT] diff_sum =   0.085623
+[RESULT] scale = 13; snr = 78.565445
+
+[DEBUG] Computing snr for scale = 14
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum = 221.128766
+[RESULT] diff_sum =   0.026087
+[RESULT] scale = 14; snr = 90.450508
+
+[DEBUG] Computing snr for scale = 15
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum = 221.128766
+[RESULT] diff_sum =   0.005678
+[RESULT] scale = 15; snr = 105.698715
+
+[DEBUG] Computing snr for scale = 16
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum = 221.128766
+[RESULT] diff_sum = 338.279492
+[RESULT] scale = 16; snr = -4.251273
+
+[DEBUG] Computing snr for scale = 17
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum = 221.128766
+[RESULT] diff_sum = 243.382143
+[RESULT] scale = 17; snr = -0.958876
+
+[DEBUG] Computing snr for scale = 18
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum = 221.128766
+[RESULT] diff_sum = 238.459005
+[RESULT] scale = 18; snr = -0.754522
+
+[DEBUG] Computing snr for scale = 19
+[DEBUG] Reinitilizing the Cin matrix
+[DEBUG] Executing gemm operation
+[RESULT] nums_sum = 221.128766
+[RESULT] diff_sum = 221.127835
+[RESULT] scale = 19; snr = 0.000042
+
