@@ -12,6 +12,7 @@
 #include <omp.h>
 #endif
 
+
 #if defined(_MSC_VER)
 #if defined(_M_ARM) || defined(_M_ARM64)
 static inline uint32_t popcnt(uint32_t v) {
@@ -49,6 +50,19 @@ static inline int popcnt_64(uint64_t val64) {
 #else
 #define PUT_IN_REGISTER register
 #endif
+
+#define DTYPE int
+
+#include "snr_test.h"
+
+extern bool save_output;
+extern float maximum, minimum;
+extern bool use_fx_conv;
+extern bool use_cnative_round;
+extern bool use_withscale_int_round;
+extern bool calclate_snr_for_img;
+extern int scale;
+
 
 void gemm_bin(int M, int N, int K, float ALPHA,
         char  *A, int lda,
@@ -113,7 +127,37 @@ void gemm(int TA, int TB, int M, int N, int K, float ALPHA,
         float BETA,
         float *C, int ldc)
 {
+    if(!use_fx_conv){
+        if(!calclate_snr_for_img) {
+            use_cnative_round = 0;
+        }
+    }
+
     gemm_cpu( TA,  TB,  M, N, K, ALPHA,A,lda, B, ldb,BETA,C,ldc);
+
+    if(save_output){
+        FILE * fp = fopen("cout.txt","w");
+        for(int i = 0; i < M*ldc; i++){
+            fprintf(fp, "%10.10f, ", C[i]);
+        }
+        fclose(fp);
+    }
+
+    if(!calclate_snr_for_img) {
+        return;
+    }
+    else{
+        float *Cfx = (float*) malloc(sizeof(float) * M * ldc);
+        use_fx_conv = 1;
+
+        for(int i = 1; i < 30; i++) {
+            scale = i;
+            printf("[DEBUG] Computing snr for scale = %d\n", scale);
+            compute_snr(A, B, Cfx, C, M, K, N, lda, ldb, ldc, scale);
+        }
+        
+    }
+    return;
 }
 
 
@@ -1977,7 +2021,11 @@ int is_fma_avx2() {
 
 // http://users.ece.utexas.edu/~gerstl/ece382m_f21/labs/lab1/fp2fx.cpp
 int __roundup(float fp_number) {
-	int	fx_number	=	(int)fp_number;
+    //if(fp_number > maximum) maximum = fp_number;
+    //if(fp_number < minimum) minimum = fp_number;
+
+	DTYPE fx_number	=	(DTYPE)fp_number;
+    //printf("Hello\n");
 
 	if(fp_number-fx_number>=0.5)	fx_number++;
 
@@ -2029,23 +2077,148 @@ void gemm_nn(int M, int N, int K, float ALPHA,
 
     //Uncomment for int point computations
 
-    //TODO: adjust scale intelligently
-    int scale = 16;
+    if(use_fx_conv){ 
+        //TODO: adjust scale intelligently
+        //int scale = 1;
 
-    // convert ALPHA into int here
-    //PUT_IN_REGISTER int AlPHA = __roundup(ALPHA * (1 << scale));
-    int AlPHA = __roundup(ALPHA * (1 << scale));
-    for (i = 0; i < M; ++i) {
-        for (k = 0; k < K; ++k) {
-            PUT_IN_REGISTER int A_PART = ALPHA * __roundup(A[i * lda + k] * (1 << scale));
-            for (j = 0; j < N; ++j) {
-                int res =  A_PART * __roundup(B[k*ldb + j] * (1 << scale));
-                C[i*ldc + j] += (float)(A_PART* __roundup(B[k*ldb + j] * (1 << scale)))/(1 << scale);
+        // convert ALPHA into int here
+        //PUT_IN_REGISTER int AlPHA = __roundup(ALPHA * (1 << scale));
+        //int tmp_k_mult, tmp_j_mult;
+        //int tmp_k_div; 
+
+        DTYPE ALPHA_con = __roundup(ALPHA * (1 << scale));
+        //printf("ALPHA = %d\n", ALPHA_con);
+
+        for (i = 0; i < M; ++i) {
+            for (k = 0; k < K; ++k) {
+                //tmp_k_mult = ((ALPHA_con * __roundup(A[i * lda + k] * (1 << scale))) >> scale);
+
+                //tmp_k_div = (int)(tmp_k_mult / (1 << scale));
+                //printf("tmp_k_div = %d\n", tmp_k_div);
+
+                //PUT_IN_REGISTER int A_PART = tmp_k_mult; 
+
+                PUT_IN_REGISTER int A_PART = ((ALPHA_con * __roundup(A[i * lda + k] * (1 << scale))) >> scale);
+
+                //printf("A_PART num = %d\n", tmp_k_mult);
+
+                for (j = 0; j < N; ++j) {
+                    //DTYPE res =  A_PART * __roundup(B[k*ldb + j] * (1 << scale));
+
+                    //printf("B_PART num = %d\n", tmp_j_mult);
+
+                    //float calc_num =((float)tmp_j_mult) / (1 << scale); 
+                    C[i*ldc + j] += ((float)((A_PART *
+                                            __roundup( B[k*ldb + j] * (1 << scale))) 
+                                            >> scale))    /  ( 1 << scale);
+
+                    //printf("Calc num = %10.10f\n", calc_num);
+                }
             }
         }
     }
+    else if(use_withscale_int_round){
+        DTYPE ALPHA_con = (int)(ALPHA * (1 << scale));
+        //printf("ALPHA = %d\n", ALPHA_con);
+
+        for (i = 0; i < M; ++i) {
+            for (k = 0; k < K; ++k) {
+                //tmp_k_mult = ((ALPHA_con * round(A[i * lda + k] * (1 << scale))) >> scale);
+
+                //tmp_k_div = (int)(tmp_k_mult / (1 << scale));
+                //printf("tmp_k_div = %d\n", tmp_k_div);
+
+                //PUT_IN_REGISTER int A_PART = tmp_k_mult; 
+
+                PUT_IN_REGISTER int A_PART = ((ALPHA_con * (int)(A[i * lda + k] * (1 << scale))) >> scale);
+
+                //printf("A_PART num = %d\n", tmp_k_mult);
+
+                for (j = 0; j < N; ++j) {
+                    //DTYPE res =  A_PART * round(B[k*ldb + j] * (1 << scale));
+
+                    //printf("B_PART num = %d\n", tmp_j_mult);
+
+                    //float calc_num =((float)tmp_j_mult) / (1 << scale); 
+
+                    // remember, we can not resolve the last floating point
+                    // division. If we bitshift before floating point
+
+                    // experiment with not converting back to float but just
+                    // bit shifting
+                    C[i*ldc + j] 
+                        += ( (float)(
+                                     (A_PART * (int)(B[k*ldb + j] * (1 << scale))) 
+                                                    >> scale))
+                                                                    / ( 1 << scale);
+                                                                   
 
 
+                    /*
+                    mAP drops to 25% when this method is used
+                    C[i*ldc + j] 
+                        += (A_PART     *   (int)(B[k*ldb + j] * (1 << scale))) >> (2*scale);
+                    */                                              
+
+
+                    //printf("Calc num = %10.10f\n", calc_num);
+                }
+            }
+        }
+    }
+    else if(use_cnative_round){
+        //TODO: adjust scale intelligently
+        //int scale = 1;
+
+        // convert ALPHA into int here
+        //PUT_IN_REGISTER int AlPHA = round(ALPHA * (1 << scale));
+        //int tmp_k_mult, tmp_j_mult;
+        //int tmp_k_div; 
+
+        //DTYPE ALPHA_con = round(ALPHA);
+        //printf("ALPHA = %d\n", ALPHA_con);
+
+        DTYPE ALPHA_con = (DTYPE)(ALPHA);
+
+        for (i = 0; i < M; ++i) {
+            for (k = 0; k < K; ++k) {
+                //tmp_k_mult = ((ALPHA_con * round(A[i * lda + k] * (1 << scale))) >> scale);
+
+                //tmp_k_div = (int)(tmp_k_mult / (1 << scale));
+                //printf("tmp_k_div = %d\n", tmp_k_div);
+
+                //PUT_IN_REGISTER int A_PART = tmp_k_mult; 
+
+                PUT_IN_REGISTER int A_PART = ALPHA_con * (DTYPE)(A[i * lda + k]);
+
+                //printf("A_PART num = %d\n", tmp_k_mult);
+
+                for (j = 0; j < N; ++j) {
+                    //DTYPE res =  A_PART * round(B[k*ldb + j] * (1 << scale));
+
+                    //printf("B_PART num = %d\n", tmp_j_mult);
+
+                    //float calc_num =((float)tmp_j_mult) / (1 << scale); 
+                    C[i*ldc + j] += (A_PART * (DTYPE)(B[k*ldb + j]));
+
+                    //printf("Calc num = %10.10f\n", calc_num);
+                }
+            }
+        }
+    }
+    else{
+        for (i = 0; i < M; ++i) {
+            for (k = 0; k < K; ++k) {
+                PUT_IN_REGISTER float A_PART = ALPHA * A[i * lda + k];
+
+                //printf("Hello\n");
+
+                for (j = 0; j < N; ++j) {
+                    C[i*ldc + j] += A_PART*B[k*ldb + j];
+                }
+            }
+        }
+    }
 }
 
 void gemm_nn_fast(int M, int N, int K, float ALPHA,

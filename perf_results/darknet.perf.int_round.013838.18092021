@@ -1,0 +1,1051 @@
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls   s/call   s/call  name    
+ 24.76      1.77     1.77 714947464     0.00     0.00  overlap
+ 22.38      3.37     1.60 357473732     0.00     0.00  box_intersection
+ 21.12      4.88     1.51     3694     0.00     0.00  gemm_nn
+  7.55      5.42     0.54 178736866     0.00     0.00  box_iou
+  7.13      5.93     0.51 178736866     0.00     0.00  box_union
+  6.43      6.39     0.46                             to_tblr
+  4.48      6.71     0.32        1     0.32     6.66  validate_detector_map
+  4.06      7.00     0.29        1     0.29     4.70  do_nms_sort
+  0.70      7.05     0.05  8845488     0.00     0.00  rand_uniform
+  0.42      7.08     0.03        6     0.01     0.01  forward_maxpool_layer_avx
+  0.28      7.10     0.02        9     0.00     0.00  im2col_cpu_ext
+  0.28      7.12     0.02        1     0.02     0.02  resize_image
+  0.14      7.13     0.01       13     0.00     0.00  make_convolutional_layer
+  0.14      7.14     0.01        1     0.01     0.01  fuse_conv_batchnorm
+  0.14      7.15     0.01                             detections_comparator
+  0.00      7.15     0.00   126194     0.00     0.00  xrealloc_location
+  0.00      7.15     0.00    50757     0.00     0.00  stbi__jpeg_huff_decode
+  0.00      7.15     0.00    13824     0.00     0.00  stbi__idct_simd
+  0.00      7.15     0.00    13824     0.00     0.00  stbi__jpeg_decode_block
+  0.00      7.15     0.00     2755     0.00     0.00  xcalloc_location
+  0.00      7.15     0.00     2641     0.00     0.00  stbi__grow_buffer_unsafe
+  0.00      7.15     0.00     2535     0.00     0.00  get_yolo_box
+  0.00      7.15     0.00     1219     0.00     0.00  stbi__stdio_read
+  0.00      7.15     0.00     1152     0.00     0.00  stbi__resample_row_v_2
+  0.00      7.15     0.00      803     0.00     0.00  option_find
+  0.00      7.15     0.00      696     0.00     0.00  xmalloc_location
+  0.00      7.15     0.00      576     0.00     0.00  resample_row_1
+  0.00      7.15     0.00      576     0.00     0.00  stbi__YCbCr_to_RGB_simd
+  0.00      7.15     0.00      557     0.00     0.00  option_find_int_quiet
+  0.00      7.15     0.00      275     0.00     0.00  fgetl
+  0.00      7.15     0.00      236     0.00     0.00  list_insert
+  0.00      7.15     0.00      190     0.00     0.00  strip
+  0.00      7.15     0.00      142     0.00     0.00  option_find_float_quiet
+  0.00      7.15     0.00      130     0.00     0.00  option_insert
+  0.00      7.15     0.00      130     0.00     0.00  read_option
+  0.00      7.15     0.00       59     0.00     0.00  option_find_int
+  0.00      7.15     0.00       29     0.00     0.00  make_list
+  0.00      7.15     0.00       26     0.00     0.00  convolutional_out_height
+  0.00      7.15     0.00       26     0.00     0.00  convolutional_out_width
+  0.00      7.15     0.00       25     0.00     0.00  free_section
+  0.00      7.15     0.00       25     0.00     0.00  option_find_str
+  0.00      7.15     0.00       24     0.00     0.00  free_layer
+  0.00      7.15     0.00       24     0.00     0.00  free_layer_custom
+  0.00      7.15     0.00       24     0.00     0.00  option_unused
+  0.00      7.15     0.00       24     0.00     0.00  string_to_layer_type
+  0.00      7.15     0.00       15     0.00     0.00  stbi__get16be
+  0.00      7.15     0.00       14     0.00     0.00  fill_cpu
+  0.00      7.15     0.00       14     0.00     0.00  is_avx
+  0.00      7.15     0.00       13     0.00     0.00  activate_array_cpu_custom
+  0.00      7.15     0.00       13     0.00     0.00  add_bias
+  0.00      7.15     0.00       13     0.00     0.12  forward_convolutional_layer
+  0.00      7.15     0.00       13     0.00     0.00  gemm
+  0.00      7.15     0.00       13     0.00     0.12  gemm_cpu
+  0.00      7.15     0.00       13     0.00     0.00  get_activation
+  0.00      7.15     0.00       13     0.00     0.00  get_convolutional_workspace_size
+  0.00      7.15     0.00       13     0.00     0.00  get_workspace_size16
+  0.00      7.15     0.00       13     0.00     0.00  get_workspace_size32
+  0.00      7.15     0.00       13     0.00     0.00  is_fma_avx2
+  0.00      7.15     0.00       13     0.00     0.00  load_convolutional_weights
+  0.00      7.15     0.00       13     0.00     0.00  parse_convolutional
+  0.00      7.15     0.00       12     0.00     0.00  activate_array
+  0.00      7.15     0.00       12     0.00     0.00  find_arg
+  0.00      7.15     0.00       12     0.00     0.00  find_replace_extension
+  0.00      7.15     0.00       11     0.00     0.00  free_convolutional_batchnorm
+  0.00      7.15     0.00       11     0.00     0.00  stbi__get8
+  0.00      7.15     0.00       11     0.00     0.00  stbi__process_marker
+  0.00      7.15     0.00       10     0.00     0.00  find_int_arg
+  0.00      7.15     0.00       10     0.00     0.00  find_replace
+  0.00      7.15     0.00        9     0.00     0.00  option_find_float
+  0.00      7.15     0.00        6     0.00     0.00  find_char_arg
+  0.00      7.15     0.00        6     0.00     0.01  forward_maxpool_layer
+  0.00      7.15     0.00        6     0.00     0.00  make_maxpool_layer
+  0.00      7.15     0.00        6     0.00     0.00  option_find_str_quiet
+  0.00      7.15     0.00        6     0.00     0.00  parse_maxpool
+  0.00      7.15     0.00        6     0.00     0.00  scal_add_cpu
+  0.00      7.15     0.00        4     0.00     0.00  stbi__build_huffman
+  0.00      7.15     0.00        4     0.00     0.00  stbi__skip
+  0.00      7.15     0.00        4     0.00     0.00  stbi__stdio_skip
+  0.00      7.15     0.00        3     0.00     0.00  copy_cpu
+  0.00      7.15     0.00        3     0.00     0.00  find_float_arg
+  0.00      7.15     0.00        3     0.00     0.00  free_image
+  0.00      7.15     0.00        3     0.00     0.00  free_list
+  0.00      7.15     0.00        3     0.00     0.00  free_node
+  0.00      7.15     0.00        3     0.00     0.00  make_empty_image
+  0.00      7.15     0.00        3     0.00     0.00  make_image
+  0.00      7.15     0.00        2     0.00     0.00  _init
+  0.00      7.15     0.00        2     0.00     0.00  correct_yolo_boxes
+  0.00      7.15     0.00        2     0.00     0.00  forward_route_layer
+  0.00      7.15     0.00        2     0.00     0.00  forward_yolo_layer
+  0.00      7.15     0.00        2     0.00     0.00  get_classes_multipliers
+  0.00      7.15     0.00        2     0.00     0.00  get_network_output
+  0.00      7.15     0.00        2     0.00     0.00  get_paths
+  0.00      7.15     0.00        2     0.00     0.00  get_yolo_detections
+  0.00      7.15     0.00        2     0.00     0.00  list_to_array
+  0.00      7.15     0.00        2     0.00     0.00  make_route_layer
+  0.00      7.15     0.00        2     0.00     0.00  make_yolo_layer
+  0.00      7.15     0.00        2     0.00     0.00  parse_route
+  0.00      7.15     0.00        2     0.00     0.00  parse_yolo
+  0.00      7.15     0.00        2     0.00     0.00  parse_yolo_mask
+  0.00      7.15     0.00        2     0.00     0.00  yolo_num_detections
+  0.00      7.15     0.00        1     0.00     0.00  basecfg
+  0.00      7.15     0.00        1     0.00     0.00  calculate_binary_weights
+  0.00      7.15     0.00        1     0.00     0.00  copy_string
+  0.00      7.15     0.00        1     0.00     0.00  custom_hash
+  0.00      7.15     0.00        1     0.00     0.00  fill_network_boxes
+  0.00      7.15     0.00        1     0.00     1.56  forward_network
+  0.00      7.15     0.00        1     0.00     0.00  forward_upsample_layer
+  0.00      7.15     0.00        1     0.00     0.00  free_detections
+  0.00      7.15     0.00        1     0.00     0.00  free_list_contents_kvp
+  0.00      7.15     0.00        1     0.00     0.00  free_network
+  0.00      7.15     0.00        1     0.00     0.00  free_ptrs
+  0.00      7.15     0.00        1     0.00     0.00  get_current_batch
+  0.00      7.15     0.00        1     0.00     0.00  get_labels_custom
+  0.00      7.15     0.00        1     0.00     0.00  get_network_boxes
+  0.00      7.15     0.00        1     0.00     0.00  get_network_output_size
+  0.00      7.15     0.00        1     0.00     0.00  get_policy
+  0.00      7.15     0.00        1     0.00     0.00  is_network
+  0.00      7.15     0.00        1     0.00     0.00  load_data_in_thread
+  0.00      7.15     0.00        1     0.00     0.00  load_image
+  0.00      7.15     0.00        1     0.00     0.00  load_image_stb
+  0.00      7.15     0.00        1     0.00     0.00  load_weights
+  0.00      7.15     0.00        1     0.00     0.00  load_weights_upto
+  0.00      7.15     0.00        1     0.00     0.00  make_network
+  0.00      7.15     0.00        1     0.00     0.00  make_network_boxes
+  0.00      7.15     0.00        1     0.00     0.00  make_upsample_layer
+  0.00      7.15     0.00        1     0.00     1.56  network_predict
+  0.00      7.15     0.00        1     0.00     0.00  num_detections
+  0.00      7.15     0.00        1     0.00     0.00  parse_net_options
+  0.00      7.15     0.00        1     0.00     0.06  parse_network_cfg_custom
+  0.00      7.15     0.00        1     0.00     0.00  parse_upsample
+  0.00      7.15     0.00        1     0.00     0.00  read_boxes
+  0.00      7.15     0.00        1     0.00     0.00  read_cfg
+  0.00      7.15     0.00        1     0.00     0.00  read_data_cfg
+  0.00      7.15     0.00        1     0.00     0.00  replace_image_to_label
+  0.00      7.15     0.00        1     0.00     0.00  set_train_only_bn
+  0.00      7.15     0.00        1     0.00     0.00  stbi__decode_jpeg_header
+  0.00      7.15     0.00        1     0.00     0.00  stbi__decode_jpeg_image
+  0.00      7.15     0.00        1     0.00     0.00  stbi__load_and_postprocess_8bit
+  0.00      7.15     0.00        1     0.00     0.00  stbi__load_main
+  0.00      7.15     0.00        1     0.00     0.00  stbi_load
+  0.00      7.15     0.00        1     0.00     0.00  stbi_load_from_file
+  0.00      7.15     0.00        1     0.00     0.00  trim
+  0.00      7.15     0.00        1     0.00     0.00  upsample_cpu
+
+ %         the percentage of the total running time of the
+time       program used by this function.
+
+cumulative a running sum of the number of seconds accounted
+ seconds   for by this function and those listed above it.
+
+ self      the number of seconds accounted for by this
+seconds    function alone.  This is the major sort for this
+           listing.
+
+calls      the number of times this function was invoked, if
+           this function is profiled, else blank.
+
+ self      the average number of milliseconds spent in this
+ms/call    function per call, if this function is profiled,
+	   else blank.
+
+ total     the average number of milliseconds spent in this
+ms/call    function and its descendents per call, if this
+	   function is profiled, else blank.
+
+name       the name of the function.  This is the minor sort
+           for this listing. The index shows the location of
+	   the function in the gprof listing. If the index is
+	   in parenthesis it shows where it would appear in
+	   the gprof listing if it were to be printed.
+
+Copyright (C) 2012-2020 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
+
+		     Call graph (explanation follows)
+
+
+granularity: each sample hit covers 2 byte(s) for 0.14% of 7.15 seconds
+
+index % time    self  children    called     name
+                0.32    6.34       1/1           run_detector [2]
+[1]     93.1    0.32    6.34       1         validate_detector_map [1]
+                0.29    4.41       1/1           do_nms_sort [3]
+                0.00    1.56       1/1           network_predict [9]
+                0.00    0.06       1/1           parse_network_cfg_custom [16]
+                0.00    0.01  504760/178736866     box_iou [4]
+                0.01    0.00       1/1           fuse_conv_batchnorm [23]
+                0.00    0.00  126190/126194      xrealloc_location [25]
+                0.00    0.00      93/2755        xcalloc_location [29]
+                0.00    0.00       3/25          option_find_str [50]
+                0.00    0.00       2/3           free_image [86]
+                0.00    0.00       1/1           read_data_cfg [134]
+                0.00    0.00       1/1           get_labels_custom [116]
+                0.00    0.00       1/2           get_paths [96]
+                0.00    0.00       1/2           list_to_array [98]
+                0.00    0.00       1/1           load_data_in_thread [121]
+                0.00    0.00       1/1           basecfg [105]
+                0.00    0.00       1/2           get_network_output [95]
+                0.00    0.00       1/1           get_network_boxes [117]
+                0.00    0.00       1/1           replace_image_to_label [135]
+                0.00    0.00       1/1           read_boxes [132]
+                0.00    0.00       1/1           free_detections [111]
+                0.00    0.00       1/1           free_ptrs [114]
+                0.00    0.00       1/1           free_list_contents_kvp [112]
+                0.00    0.00       1/3           free_list [87]
+                0.00    0.00       1/1           free_network [113]
+                0.00    0.00       1/1           load_weights_upto [125]
+                0.00    0.00       1/1           load_weights [124]
+                0.00    0.00       1/1           calculate_binary_weights [106]
+-----------------------------------------------
+                                                 <spontaneous>
+[2]     93.1    0.00    6.66                 run_detector [2]
+                0.32    6.34       1/1           validate_detector_map [1]
+                0.00    0.00      12/12          find_arg [68]
+                0.00    0.00      10/10          find_int_arg [73]
+                0.00    0.00       6/6           find_char_arg [76]
+                0.00    0.00       3/3           find_float_arg [85]
+-----------------------------------------------
+                0.29    4.41       1/1           validate_detector_map [1]
+[3]     65.7    0.29    4.41       1         do_nms_sort [3]
+                0.54    3.87 178232106/178736866     box_iou [4]
+-----------------------------------------------
+                0.00    0.01  504760/178736866     validate_detector_map [1]
+                0.54    3.87 178232106/178736866     do_nms_sort [3]
+[4]     61.8    0.54    3.88 178736866         box_iou [4]
+                0.51    1.69 178736866/178736866     box_union [6]
+                0.80    0.89 178736866/357473732     box_intersection [5]
+-----------------------------------------------
+                0.80    0.89 178736866/357473732     box_union [6]
+                0.80    0.89 178736866/357473732     box_iou [4]
+[5]     47.1    1.60    1.77 357473732         box_intersection [5]
+                1.77    0.00 714947464/714947464     overlap [7]
+-----------------------------------------------
+                0.51    1.69 178736866/178736866     box_iou [4]
+[6]     30.7    0.51    1.69 178736866         box_union [6]
+                0.80    0.89 178736866/357473732     box_intersection [5]
+-----------------------------------------------
+                1.77    0.00 714947464/714947464     box_intersection [5]
+[7]     24.8    1.77    0.00 714947464         overlap [7]
+-----------------------------------------------
+                0.00    1.56       1/1           network_predict [9]
+[8]     21.8    0.00    1.56       1         forward_network [8]
+                0.00    1.53      13/13          forward_convolutional_layer [10]
+                0.00    0.03       6/6           forward_maxpool_layer [18]
+                0.00    0.00       2/2           forward_yolo_layer [93]
+                0.00    0.00       2/2           forward_route_layer [92]
+                0.00    0.00       1/1           upsample_cpu [144]
+                0.00    0.00       1/1           forward_upsample_layer [110]
+-----------------------------------------------
+                0.00    1.56       1/1           validate_detector_map [1]
+[9]     21.8    0.00    1.56       1         network_predict [9]
+                0.00    1.56       1/1           forward_network [8]
+-----------------------------------------------
+                0.00    1.53      13/13          forward_network [8]
+[10]    21.4    0.00    1.53      13         forward_convolutional_layer [10]
+                0.00    1.51      13/13          gemm_cpu [12]
+                0.02    0.00       9/9           im2col_cpu_ext [20]
+                0.00    0.00      13/26          convolutional_out_height [47]
+                0.00    0.00      13/26          convolutional_out_width [48]
+                0.00    0.00      13/14          fill_cpu [56]
+                0.00    0.00      13/13          gemm [60]
+                0.00    0.00      13/13          add_bias [59]
+                0.00    0.00      13/13          activate_array_cpu_custom [58]
+-----------------------------------------------
+                1.51    0.00    3694/3694        gemm_cpu [12]
+[11]    21.1    1.51    0.00    3694         gemm_nn [11]
+-----------------------------------------------
+                0.00    1.51      13/13          forward_convolutional_layer [10]
+[12]    21.1    0.00    1.51      13         gemm_cpu [12]
+                1.51    0.00    3694/3694        gemm_nn [11]
+                0.00    0.00      13/13          is_fma_avx2 [65]
+                0.00    0.00      13/14          is_avx [57]
+-----------------------------------------------
+                                                 <spontaneous>
+[13]     6.4    0.46    0.00                 to_tblr [13]
+-----------------------------------------------
+                0.01    0.05      13/13          parse_convolutional [15]
+[14]     0.8    0.01    0.05      13         make_convolutional_layer [14]
+                0.05    0.00 8845488/8845488     rand_uniform [17]
+                0.00    0.00      72/2755        xcalloc_location [29]
+                0.00    0.00      13/26          convolutional_out_height [47]
+                0.00    0.00      13/26          convolutional_out_width [48]
+                0.00    0.00      13/13          get_convolutional_workspace_size [62]
+-----------------------------------------------
+                0.00    0.06      13/13          parse_network_cfg_custom [16]
+[15]     0.8    0.00    0.06      13         parse_convolutional [15]
+                0.01    0.05      13/13          make_convolutional_layer [14]
+                0.00    0.00     286/557         option_find_int_quiet [38]
+                0.00    0.00      52/142         option_find_float_quiet [42]
+                0.00    0.00      39/59          option_find_int [45]
+                0.00    0.00      13/25          option_find_str [50]
+                0.00    0.00      13/13          get_activation [61]
+-----------------------------------------------
+                0.00    0.06       1/1           validate_detector_map [1]
+[16]     0.8    0.00    0.06       1         parse_network_cfg_custom [16]
+                0.00    0.06      13/13          parse_convolutional [15]
+                0.00    0.00     168/557         option_find_int_quiet [38]
+                0.00    0.00      49/142         option_find_float_quiet [42]
+                0.00    0.00      25/25          free_section [49]
+                0.00    0.00      24/24          string_to_layer_type [54]
+                0.00    0.00      24/24          option_unused [53]
+                0.00    0.00       6/6           parse_maxpool [79]
+                0.00    0.00       2/2           parse_yolo [102]
+                0.00    0.00       2/2           parse_route [101]
+                0.00    0.00       1/1           read_cfg [133]
+                0.00    0.00       1/1           make_network [126]
+                0.00    0.00       1/1           is_network [120]
+                0.00    0.00       1/1           parse_net_options [130]
+                0.00    0.00       1/3           free_list [87]
+                0.00    0.00       1/1           set_train_only_bn [136]
+                0.00    0.00       1/1           get_network_output_size [118]
+                0.00    0.00       1/2           get_network_output [95]
+                0.00    0.00       1/2755        xcalloc_location [29]
+                0.00    0.00       1/1           parse_upsample [131]
+-----------------------------------------------
+                0.05    0.00 8845488/8845488     make_convolutional_layer [14]
+[17]     0.7    0.05    0.00 8845488         rand_uniform [17]
+-----------------------------------------------
+                0.00    0.03       6/6           forward_network [8]
+[18]     0.4    0.00    0.03       6         forward_maxpool_layer [18]
+                0.03    0.00       6/6           forward_maxpool_layer_avx [19]
+-----------------------------------------------
+                0.03    0.00       6/6           forward_maxpool_layer [18]
+[19]     0.4    0.03    0.00       6         forward_maxpool_layer_avx [19]
+-----------------------------------------------
+                0.02    0.00       9/9           forward_convolutional_layer [10]
+[20]     0.3    0.02    0.00       9         im2col_cpu_ext [20]
+-----------------------------------------------
+                0.02    0.00       1/1           load_thread [22]
+[21]     0.3    0.02    0.00       1         resize_image [21]
+                0.00    0.00       2/3           make_image [90]
+                0.00    0.00       1/3           free_image [86]
+-----------------------------------------------
+                                                 <spontaneous>
+[22]     0.3    0.00    0.02                 load_thread [22]
+                0.02    0.00       1/1           resize_image [21]
+                0.00    0.00       1/1           load_image [122]
+-----------------------------------------------
+                0.01    0.00       1/1           validate_detector_map [1]
+[23]     0.1    0.01    0.00       1         fuse_conv_batchnorm [23]
+                0.00    0.00      11/11          free_convolutional_batchnorm [70]
+-----------------------------------------------
+                                                 <spontaneous>
+[24]     0.1    0.01    0.00                 detections_comparator [24]
+-----------------------------------------------
+                0.00    0.00       4/126194      read_boxes [132]
+                0.00    0.00  126190/126194      validate_detector_map [1]
+[25]     0.0    0.00    0.00  126194         xrealloc_location [25]
+-----------------------------------------------
+                0.00    0.00   50757/50757       stbi__jpeg_decode_block [28]
+[26]     0.0    0.00    0.00   50757         stbi__jpeg_huff_decode [26]
+                0.00    0.00       6/2641        stbi__grow_buffer_unsafe [30]
+-----------------------------------------------
+                0.00    0.00   13824/13824       stbi__decode_jpeg_image [138]
+[27]     0.0    0.00    0.00   13824         stbi__idct_simd [27]
+-----------------------------------------------
+                0.00    0.00   13824/13824       stbi__decode_jpeg_image [138]
+[28]     0.0    0.00    0.00   13824         stbi__jpeg_decode_block [28]
+                0.00    0.00   50757/50757       stbi__jpeg_huff_decode [26]
+                0.00    0.00    2607/2641        stbi__grow_buffer_unsafe [30]
+                0.00    0.00    1175/1219        stbi__stdio_read [32]
+-----------------------------------------------
+                0.00    0.00       1/2755        trim [143]
+                0.00    0.00       1/2755        read_boxes [132]
+                0.00    0.00       1/2755        load_data_in_thread [121]
+                0.00    0.00       1/2755        parse_network_cfg_custom [16]
+                0.00    0.00       2/2755        list_to_array [98]
+                0.00    0.00       2/2755        parse_yolo_mask [103]
+                0.00    0.00       2/2755        make_upsample_layer [128]
+                0.00    0.00       3/2755        make_image [90]
+                0.00    0.00       3/2755        parse_net_options [130]
+                0.00    0.00       4/2755        parse_route [101]
+                0.00    0.00       4/2755        make_route_layer [99]
+                0.00    0.00       6/2755        make_maxpool_layer [77]
+                0.00    0.00      10/2755        make_network [126]
+                0.00    0.00      14/2755        make_yolo_layer [100]
+                0.00    0.00      72/2755        make_convolutional_layer [14]
+                0.00    0.00      93/2755        validate_detector_map [1]
+                0.00    0.00    2536/2755        make_network_boxes [127]
+[29]     0.0    0.00    0.00    2755         xcalloc_location [29]
+-----------------------------------------------
+                0.00    0.00       6/2641        stbi__jpeg_huff_decode [26]
+                0.00    0.00      28/2641        stbi__decode_jpeg_image [138]
+                0.00    0.00    2607/2641        stbi__jpeg_decode_block [28]
+[30]     0.0    0.00    0.00    2641         stbi__grow_buffer_unsafe [30]
+                0.00    0.00      35/1219        stbi__stdio_read [32]
+-----------------------------------------------
+                0.00    0.00    2535/2535        get_yolo_detections [97]
+[31]     0.0    0.00    0.00    2535         get_yolo_box [31]
+-----------------------------------------------
+                0.00    0.00       1/1219        stbi_load_from_file [142]
+                0.00    0.00       4/1219        stbi__process_marker [72]
+                0.00    0.00       4/1219        stbi__decode_jpeg_header [137]
+                0.00    0.00      35/1219        stbi__grow_buffer_unsafe [30]
+                0.00    0.00    1175/1219        stbi__jpeg_decode_block [28]
+[32]     0.0    0.00    0.00    1219         stbi__stdio_read [32]
+-----------------------------------------------
+                0.00    0.00    1152/1152        stbi__load_main [140]
+[33]     0.0    0.00    0.00    1152         stbi__resample_row_v_2 [33]
+-----------------------------------------------
+                0.00    0.00       2/803         parse_route [101]
+                0.00    0.00       3/803         parse_net_options [130]
+                0.00    0.00       6/803         option_find_str_quiet [78]
+                0.00    0.00       9/803         option_find_float [75]
+                0.00    0.00      25/803         option_find_str [50]
+                0.00    0.00      59/803         option_find_int [45]
+                0.00    0.00     142/803         option_find_float_quiet [42]
+                0.00    0.00     557/803         option_find_int_quiet [38]
+[34]     0.0    0.00    0.00     803         option_find [34]
+-----------------------------------------------
+                0.00    0.00       1/696         copy_string [107]
+                0.00    0.00      25/696         read_cfg [133]
+                0.00    0.00      29/696         make_list [46]
+                0.00    0.00     130/696         option_insert [43]
+                0.00    0.00     236/696         list_insert [40]
+                0.00    0.00     275/696         fgetl [39]
+[35]     0.0    0.00    0.00     696         xmalloc_location [35]
+-----------------------------------------------
+                0.00    0.00     576/576         stbi__load_main [140]
+[36]     0.0    0.00    0.00     576         resample_row_1 [36]
+-----------------------------------------------
+                0.00    0.00     576/576         stbi__load_main [140]
+[37]     0.0    0.00    0.00     576         stbi__YCbCr_to_RGB_simd [37]
+-----------------------------------------------
+                0.00    0.00       8/557         parse_route [101]
+                0.00    0.00      20/557         parse_yolo [102]
+                0.00    0.00      33/557         parse_net_options [130]
+                0.00    0.00      42/557         parse_maxpool [79]
+                0.00    0.00     168/557         parse_network_cfg_custom [16]
+                0.00    0.00     286/557         parse_convolutional [15]
+[38]     0.0    0.00    0.00     557         option_find_int_quiet [38]
+                0.00    0.00     557/803         option_find [34]
+-----------------------------------------------
+                0.00    0.00       9/275         read_data_cfg [134]
+                0.00    0.00      83/275         get_paths [96]
+                0.00    0.00     183/275         read_cfg [133]
+[39]     0.0    0.00    0.00     275         fgetl [39]
+                0.00    0.00     275/696         xmalloc_location [35]
+-----------------------------------------------
+                0.00    0.00      25/236         read_cfg [133]
+                0.00    0.00      81/236         get_paths [96]
+                0.00    0.00     130/236         read_option [44]
+[40]     0.0    0.00    0.00     236         list_insert [40]
+                0.00    0.00     236/696         xmalloc_location [35]
+-----------------------------------------------
+                0.00    0.00       8/190         read_data_cfg [134]
+                0.00    0.00     182/190         read_cfg [133]
+[41]     0.0    0.00    0.00     190         strip [41]
+-----------------------------------------------
+                0.00    0.00       1/142         parse_upsample [131]
+                0.00    0.00      16/142         parse_net_options [130]
+                0.00    0.00      24/142         parse_yolo [102]
+                0.00    0.00      49/142         parse_network_cfg_custom [16]
+                0.00    0.00      52/142         parse_convolutional [15]
+[42]     0.0    0.00    0.00     142         option_find_float_quiet [42]
+                0.00    0.00     142/803         option_find [34]
+-----------------------------------------------
+                0.00    0.00     130/130         read_option [44]
+[43]     0.0    0.00    0.00     130         option_insert [43]
+                0.00    0.00     130/696         xmalloc_location [35]
+-----------------------------------------------
+                0.00    0.00       6/130         read_data_cfg [134]
+                0.00    0.00     124/130         read_cfg [133]
+[44]     0.0    0.00    0.00     130         read_option [44]
+                0.00    0.00     130/236         list_insert [40]
+                0.00    0.00     130/130         option_insert [43]
+-----------------------------------------------
+                0.00    0.00       1/59          parse_upsample [131]
+                0.00    0.00       3/59          parse_net_options [130]
+                0.00    0.00       4/59          parse_yolo [102]
+                0.00    0.00      12/59          parse_maxpool [79]
+                0.00    0.00      39/59          parse_convolutional [15]
+[45]     0.0    0.00    0.00      59         option_find_int [45]
+                0.00    0.00      59/803         option_find [34]
+-----------------------------------------------
+                0.00    0.00       1/29          read_data_cfg [134]
+                0.00    0.00       2/29          get_paths [96]
+                0.00    0.00      26/29          read_cfg [133]
+[46]     0.0    0.00    0.00      29         make_list [46]
+                0.00    0.00      29/696         xmalloc_location [35]
+-----------------------------------------------
+                0.00    0.00      13/26          make_convolutional_layer [14]
+                0.00    0.00      13/26          forward_convolutional_layer [10]
+[47]     0.0    0.00    0.00      26         convolutional_out_height [47]
+-----------------------------------------------
+                0.00    0.00      13/26          make_convolutional_layer [14]
+                0.00    0.00      13/26          forward_convolutional_layer [10]
+[48]     0.0    0.00    0.00      26         convolutional_out_width [48]
+-----------------------------------------------
+                0.00    0.00      25/25          parse_network_cfg_custom [16]
+[49]     0.0    0.00    0.00      25         free_section [49]
+-----------------------------------------------
+                0.00    0.00       1/25          parse_net_options [130]
+                0.00    0.00       3/25          validate_detector_map [1]
+                0.00    0.00       8/25          parse_yolo [102]
+                0.00    0.00      13/25          parse_convolutional [15]
+[50]     0.0    0.00    0.00      25         option_find_str [50]
+                0.00    0.00      25/803         option_find [34]
+-----------------------------------------------
+                0.00    0.00      24/24          free_network [113]
+[51]     0.0    0.00    0.00      24         free_layer [51]
+-----------------------------------------------
+                0.00    0.00      24/24          free_network [113]
+[52]     0.0    0.00    0.00      24         free_layer_custom [52]
+-----------------------------------------------
+                0.00    0.00      24/24          parse_network_cfg_custom [16]
+[53]     0.0    0.00    0.00      24         option_unused [53]
+-----------------------------------------------
+                0.00    0.00      24/24          parse_network_cfg_custom [16]
+[54]     0.0    0.00    0.00      24         string_to_layer_type [54]
+-----------------------------------------------
+                0.00    0.00       3/15          stbi__decode_jpeg_header [137]
+                0.00    0.00      12/15          stbi__process_marker [72]
+[55]     0.0    0.00    0.00      15         stbi__get16be [55]
+-----------------------------------------------
+                0.00    0.00       1/14          forward_upsample_layer [110]
+                0.00    0.00      13/14          forward_convolutional_layer [10]
+[56]     0.0    0.00    0.00      14         fill_cpu [56]
+-----------------------------------------------
+                0.00    0.00       1/14          init_cpu [506]
+                0.00    0.00      13/14          gemm_cpu [12]
+[57]     0.0    0.00    0.00      14         is_avx [57]
+-----------------------------------------------
+                0.00    0.00      13/13          forward_convolutional_layer [10]
+[58]     0.0    0.00    0.00      13         activate_array_cpu_custom [58]
+-----------------------------------------------
+                0.00    0.00      13/13          forward_convolutional_layer [10]
+[59]     0.0    0.00    0.00      13         add_bias [59]
+-----------------------------------------------
+                0.00    0.00      13/13          forward_convolutional_layer [10]
+[60]     0.0    0.00    0.00      13         gemm [60]
+-----------------------------------------------
+                0.00    0.00      13/13          parse_convolutional [15]
+[61]     0.0    0.00    0.00      13         get_activation [61]
+-----------------------------------------------
+                0.00    0.00      13/13          make_convolutional_layer [14]
+[62]     0.0    0.00    0.00      13         get_convolutional_workspace_size [62]
+                0.00    0.00      13/13          get_workspace_size32 [64]
+                0.00    0.00      13/13          get_workspace_size16 [63]
+-----------------------------------------------
+                0.00    0.00      13/13          get_convolutional_workspace_size [62]
+[63]     0.0    0.00    0.00      13         get_workspace_size16 [63]
+-----------------------------------------------
+                0.00    0.00      13/13          get_convolutional_workspace_size [62]
+[64]     0.0    0.00    0.00      13         get_workspace_size32 [64]
+-----------------------------------------------
+                0.00    0.00      13/13          gemm_cpu [12]
+[65]     0.0    0.00    0.00      13         is_fma_avx2 [65]
+-----------------------------------------------
+                0.00    0.00      13/13          load_weights_upto [125]
+[66]     0.0    0.00    0.00      13         load_convolutional_weights [66]
+-----------------------------------------------
+                0.00    0.00      12/12          forward_yolo_layer [93]
+[67]     0.0    0.00    0.00      12         activate_array [67]
+-----------------------------------------------
+                0.00    0.00      12/12          run_detector [2]
+[68]     0.0    0.00    0.00      12         find_arg [68]
+-----------------------------------------------
+                0.00    0.00      12/12          replace_image_to_label [135]
+[69]     0.0    0.00    0.00      12         find_replace_extension [69]
+-----------------------------------------------
+                0.00    0.00      11/11          fuse_conv_batchnorm [23]
+[70]     0.0    0.00    0.00      11         free_convolutional_batchnorm [70]
+-----------------------------------------------
+                0.00    0.00      11/11          stbi__decode_jpeg_header [137]
+[71]     0.0    0.00    0.00      11         stbi__get8 [71]
+-----------------------------------------------
+                0.00    0.00       4/11          stbi__decode_jpeg_header [137]
+                0.00    0.00       7/11          stbi__decode_jpeg_image [138]
+[72]     0.0    0.00    0.00      11         stbi__process_marker [72]
+                0.00    0.00      12/15          stbi__get16be [55]
+                0.00    0.00       4/1219        stbi__stdio_read [32]
+                0.00    0.00       4/4           stbi__build_huffman [81]
+                0.00    0.00       4/4           stbi__stdio_skip [83]
+                0.00    0.00       4/4           stbi__skip [82]
+-----------------------------------------------
+                0.00    0.00      10/10          run_detector [2]
+[73]     0.0    0.00    0.00      10         find_int_arg [73]
+-----------------------------------------------
+                0.00    0.00      10/10          replace_image_to_label [135]
+[74]     0.0    0.00    0.00      10         find_replace [74]
+-----------------------------------------------
+                0.00    0.00       3/9           parse_net_options [130]
+                0.00    0.00       6/9           parse_yolo [102]
+[75]     0.0    0.00    0.00       9         option_find_float [75]
+                0.00    0.00       9/803         option_find [34]
+-----------------------------------------------
+                0.00    0.00       6/6           run_detector [2]
+[76]     0.0    0.00    0.00       6         find_char_arg [76]
+-----------------------------------------------
+                0.00    0.00       6/6           parse_maxpool [79]
+[77]     0.0    0.00    0.00       6         make_maxpool_layer [77]
+                0.00    0.00       6/2755        xcalloc_location [29]
+-----------------------------------------------
+                0.00    0.00       6/6           parse_yolo [102]
+[78]     0.0    0.00    0.00       6         option_find_str_quiet [78]
+                0.00    0.00       6/803         option_find [34]
+-----------------------------------------------
+                0.00    0.00       6/6           parse_network_cfg_custom [16]
+[79]     0.0    0.00    0.00       6         parse_maxpool [79]
+                0.00    0.00      42/557         option_find_int_quiet [38]
+                0.00    0.00      12/59          option_find_int [45]
+                0.00    0.00       6/6           make_maxpool_layer [77]
+-----------------------------------------------
+                0.00    0.00       6/6           forward_yolo_layer [93]
+[80]     0.0    0.00    0.00       6         scal_add_cpu [80]
+-----------------------------------------------
+                0.00    0.00       4/4           stbi__process_marker [72]
+[81]     0.0    0.00    0.00       4         stbi__build_huffman [81]
+-----------------------------------------------
+                0.00    0.00       4/4           stbi__process_marker [72]
+[82]     0.0    0.00    0.00       4         stbi__skip [82]
+-----------------------------------------------
+                0.00    0.00       4/4           stbi__process_marker [72]
+[83]     0.0    0.00    0.00       4         stbi__stdio_skip [83]
+-----------------------------------------------
+                0.00    0.00       3/3           forward_route_layer [92]
+[84]     0.0    0.00    0.00       3         copy_cpu [84]
+-----------------------------------------------
+                0.00    0.00       3/3           run_detector [2]
+[85]     0.0    0.00    0.00       3         find_float_arg [85]
+-----------------------------------------------
+                0.00    0.00       1/3           resize_image [21]
+                0.00    0.00       2/3           validate_detector_map [1]
+[86]     0.0    0.00    0.00       3         free_image [86]
+-----------------------------------------------
+                0.00    0.00       1/3           get_labels_custom [116]
+                0.00    0.00       1/3           parse_network_cfg_custom [16]
+                0.00    0.00       1/3           validate_detector_map [1]
+[87]     0.0    0.00    0.00       3         free_list [87]
+                0.00    0.00       3/3           free_node [88]
+-----------------------------------------------
+                0.00    0.00       3/3           free_list [87]
+[88]     0.0    0.00    0.00       3         free_node [88]
+-----------------------------------------------
+                0.00    0.00       3/3           make_image [90]
+[89]     0.0    0.00    0.00       3         make_empty_image [89]
+-----------------------------------------------
+                0.00    0.00       1/3           load_image_stb [123]
+                0.00    0.00       2/3           resize_image [21]
+[90]     0.0    0.00    0.00       3         make_image [90]
+                0.00    0.00       3/3           make_empty_image [89]
+                0.00    0.00       3/2755        xcalloc_location [29]
+-----------------------------------------------
+                0.00    0.00       2/2           get_yolo_detections [97]
+[91]     0.0    0.00    0.00       2         correct_yolo_boxes [91]
+-----------------------------------------------
+                0.00    0.00       2/2           forward_network [8]
+[92]     0.0    0.00    0.00       2         forward_route_layer [92]
+                0.00    0.00       3/3           copy_cpu [84]
+-----------------------------------------------
+                0.00    0.00       2/2           forward_network [8]
+[93]     0.0    0.00    0.00       2         forward_yolo_layer [93]
+                0.00    0.00      12/12          activate_array [67]
+                0.00    0.00       6/6           scal_add_cpu [80]
+-----------------------------------------------
+                0.00    0.00       2/2           parse_yolo [102]
+[94]     0.0    0.00    0.00       2         get_classes_multipliers [94]
+-----------------------------------------------
+                0.00    0.00       1/2           parse_network_cfg_custom [16]
+                0.00    0.00       1/2           validate_detector_map [1]
+[95]     0.0    0.00    0.00       2         get_network_output [95]
+-----------------------------------------------
+                0.00    0.00       1/2           get_labels_custom [116]
+                0.00    0.00       1/2           validate_detector_map [1]
+[96]     0.0    0.00    0.00       2         get_paths [96]
+                0.00    0.00      83/275         fgetl [39]
+                0.00    0.00      81/236         list_insert [40]
+                0.00    0.00       2/29          make_list [46]
+-----------------------------------------------
+                0.00    0.00       2/2           fill_network_boxes [109]
+[97]     0.0    0.00    0.00       2         get_yolo_detections [97]
+                0.00    0.00    2535/2535        get_yolo_box [31]
+                0.00    0.00       2/2           correct_yolo_boxes [91]
+-----------------------------------------------
+                0.00    0.00       1/2           get_labels_custom [116]
+                0.00    0.00       1/2           validate_detector_map [1]
+[98]     0.0    0.00    0.00       2         list_to_array [98]
+                0.00    0.00       2/2755        xcalloc_location [29]
+-----------------------------------------------
+                0.00    0.00       2/2           parse_route [101]
+[99]     0.0    0.00    0.00       2         make_route_layer [99]
+                0.00    0.00       4/2755        xcalloc_location [29]
+-----------------------------------------------
+                0.00    0.00       2/2           parse_yolo [102]
+[100]    0.0    0.00    0.00       2         make_yolo_layer [100]
+                0.00    0.00      14/2755        xcalloc_location [29]
+-----------------------------------------------
+                0.00    0.00       2/2           parse_network_cfg_custom [16]
+[101]    0.0    0.00    0.00       2         parse_route [101]
+                0.00    0.00       8/557         option_find_int_quiet [38]
+                0.00    0.00       4/2755        xcalloc_location [29]
+                0.00    0.00       2/803         option_find [34]
+                0.00    0.00       2/2           make_route_layer [99]
+-----------------------------------------------
+                0.00    0.00       2/2           parse_network_cfg_custom [16]
+[102]    0.0    0.00    0.00       2         parse_yolo [102]
+                0.00    0.00      24/142         option_find_float_quiet [42]
+                0.00    0.00      20/557         option_find_int_quiet [38]
+                0.00    0.00       8/25          option_find_str [50]
+                0.00    0.00       6/6           option_find_str_quiet [78]
+                0.00    0.00       6/9           option_find_float [75]
+                0.00    0.00       4/59          option_find_int [45]
+                0.00    0.00       2/2           parse_yolo_mask [103]
+                0.00    0.00       2/2           make_yolo_layer [100]
+                0.00    0.00       2/2           get_classes_multipliers [94]
+-----------------------------------------------
+                0.00    0.00       2/2           parse_yolo [102]
+[103]    0.0    0.00    0.00       2         parse_yolo_mask [103]
+                0.00    0.00       2/2755        xcalloc_location [29]
+-----------------------------------------------
+                0.00    0.00       2/2           num_detections [129]
+[104]    0.0    0.00    0.00       2         yolo_num_detections [104]
+-----------------------------------------------
+                0.00    0.00       1/1           validate_detector_map [1]
+[105]    0.0    0.00    0.00       1         basecfg [105]
+                0.00    0.00       1/1           copy_string [107]
+-----------------------------------------------
+                0.00    0.00       1/1           validate_detector_map [1]
+[106]    0.0    0.00    0.00       1         calculate_binary_weights [106]
+-----------------------------------------------
+                0.00    0.00       1/1           basecfg [105]
+[107]    0.0    0.00    0.00       1         copy_string [107]
+                0.00    0.00       1/696         xmalloc_location [35]
+-----------------------------------------------
+                0.00    0.00       1/1           read_boxes [132]
+[108]    0.0    0.00    0.00       1         custom_hash [108]
+-----------------------------------------------
+                0.00    0.00       1/1           get_network_boxes [117]
+[109]    0.0    0.00    0.00       1         fill_network_boxes [109]
+                0.00    0.00       2/2           get_yolo_detections [97]
+-----------------------------------------------
+                0.00    0.00       1/1           forward_network [8]
+[110]    0.0    0.00    0.00       1         forward_upsample_layer [110]
+                0.00    0.00       1/14          fill_cpu [56]
+-----------------------------------------------
+                0.00    0.00       1/1           validate_detector_map [1]
+[111]    0.0    0.00    0.00       1         free_detections [111]
+-----------------------------------------------
+                0.00    0.00       1/1           validate_detector_map [1]
+[112]    0.0    0.00    0.00       1         free_list_contents_kvp [112]
+-----------------------------------------------
+                0.00    0.00       1/1           validate_detector_map [1]
+[113]    0.0    0.00    0.00       1         free_network [113]
+                0.00    0.00      24/24          free_layer_custom [52]
+                0.00    0.00      24/24          free_layer [51]
+-----------------------------------------------
+                0.00    0.00       1/1           validate_detector_map [1]
+[114]    0.0    0.00    0.00       1         free_ptrs [114]
+-----------------------------------------------
+                0.00    0.00       1/1           load_weights_upto [125]
+[115]    0.0    0.00    0.00       1         get_current_batch [115]
+-----------------------------------------------
+                0.00    0.00       1/1           validate_detector_map [1]
+[116]    0.0    0.00    0.00       1         get_labels_custom [116]
+                0.00    0.00       1/2           get_paths [96]
+                0.00    0.00       1/3           free_list [87]
+                0.00    0.00       1/2           list_to_array [98]
+-----------------------------------------------
+                0.00    0.00       1/1           validate_detector_map [1]
+[117]    0.0    0.00    0.00       1         get_network_boxes [117]
+                0.00    0.00       1/1           make_network_boxes [127]
+                0.00    0.00       1/1           fill_network_boxes [109]
+-----------------------------------------------
+                0.00    0.00       1/1           parse_network_cfg_custom [16]
+[118]    0.0    0.00    0.00       1         get_network_output_size [118]
+-----------------------------------------------
+                0.00    0.00       1/1           parse_net_options [130]
+[119]    0.0    0.00    0.00       1         get_policy [119]
+-----------------------------------------------
+                0.00    0.00       1/1           parse_network_cfg_custom [16]
+[120]    0.0    0.00    0.00       1         is_network [120]
+-----------------------------------------------
+                0.00    0.00       1/1           validate_detector_map [1]
+[121]    0.0    0.00    0.00       1         load_data_in_thread [121]
+                0.00    0.00       1/2755        xcalloc_location [29]
+-----------------------------------------------
+                0.00    0.00       1/1           load_thread [22]
+[122]    0.0    0.00    0.00       1         load_image [122]
+                0.00    0.00       1/1           load_image_stb [123]
+-----------------------------------------------
+                0.00    0.00       1/1           load_image [122]
+[123]    0.0    0.00    0.00       1         load_image_stb [123]
+                0.00    0.00       1/1           stbi_load [141]
+                0.00    0.00       1/3           make_image [90]
+-----------------------------------------------
+                0.00    0.00       1/1           validate_detector_map [1]
+[124]    0.0    0.00    0.00       1         load_weights [124]
+-----------------------------------------------
+                0.00    0.00       1/1           validate_detector_map [1]
+[125]    0.0    0.00    0.00       1         load_weights_upto [125]
+                0.00    0.00      13/13          load_convolutional_weights [66]
+                0.00    0.00       1/1           get_current_batch [115]
+-----------------------------------------------
+                0.00    0.00       1/1           parse_network_cfg_custom [16]
+[126]    0.0    0.00    0.00       1         make_network [126]
+                0.00    0.00      10/2755        xcalloc_location [29]
+-----------------------------------------------
+                0.00    0.00       1/1           get_network_boxes [117]
+[127]    0.0    0.00    0.00       1         make_network_boxes [127]
+                0.00    0.00    2536/2755        xcalloc_location [29]
+                0.00    0.00       1/1           num_detections [129]
+-----------------------------------------------
+                0.00    0.00       1/1           parse_upsample [131]
+[128]    0.0    0.00    0.00       1         make_upsample_layer [128]
+                0.00    0.00       2/2755        xcalloc_location [29]
+-----------------------------------------------
+                0.00    0.00       1/1           make_network_boxes [127]
+[129]    0.0    0.00    0.00       1         num_detections [129]
+                0.00    0.00       2/2           yolo_num_detections [104]
+-----------------------------------------------
+                0.00    0.00       1/1           parse_network_cfg_custom [16]
+[130]    0.0    0.00    0.00       1         parse_net_options [130]
+                0.00    0.00      33/557         option_find_int_quiet [38]
+                0.00    0.00      16/142         option_find_float_quiet [42]
+                0.00    0.00       3/59          option_find_int [45]
+                0.00    0.00       3/9           option_find_float [75]
+                0.00    0.00       3/803         option_find [34]
+                0.00    0.00       3/2755        xcalloc_location [29]
+                0.00    0.00       1/1           get_policy [119]
+                0.00    0.00       1/25          option_find_str [50]
+-----------------------------------------------
+                0.00    0.00       1/1           parse_network_cfg_custom [16]
+[131]    0.0    0.00    0.00       1         parse_upsample [131]
+                0.00    0.00       1/59          option_find_int [45]
+                0.00    0.00       1/1           make_upsample_layer [128]
+                0.00    0.00       1/142         option_find_float_quiet [42]
+-----------------------------------------------
+                0.00    0.00       1/1           validate_detector_map [1]
+[132]    0.0    0.00    0.00       1         read_boxes [132]
+                0.00    0.00       4/126194      xrealloc_location [25]
+                0.00    0.00       1/2755        xcalloc_location [29]
+                0.00    0.00       1/1           custom_hash [108]
+-----------------------------------------------
+                0.00    0.00       1/1           parse_network_cfg_custom [16]
+[133]    0.0    0.00    0.00       1         read_cfg [133]
+                0.00    0.00     183/275         fgetl [39]
+                0.00    0.00     182/190         strip [41]
+                0.00    0.00     124/130         read_option [44]
+                0.00    0.00      26/29          make_list [46]
+                0.00    0.00      25/696         xmalloc_location [35]
+                0.00    0.00      25/236         list_insert [40]
+-----------------------------------------------
+                0.00    0.00       1/1           validate_detector_map [1]
+[134]    0.0    0.00    0.00       1         read_data_cfg [134]
+                0.00    0.00       9/275         fgetl [39]
+                0.00    0.00       8/190         strip [41]
+                0.00    0.00       6/130         read_option [44]
+                0.00    0.00       1/29          make_list [46]
+-----------------------------------------------
+                0.00    0.00       1/1           validate_detector_map [1]
+[135]    0.0    0.00    0.00       1         replace_image_to_label [135]
+                0.00    0.00      12/12          find_replace_extension [69]
+                0.00    0.00      10/10          find_replace [74]
+                0.00    0.00       1/1           trim [143]
+-----------------------------------------------
+                0.00    0.00       1/1           parse_network_cfg_custom [16]
+[136]    0.0    0.00    0.00       1         set_train_only_bn [136]
+-----------------------------------------------
+                0.00    0.00       1/1           stbi__decode_jpeg_image [138]
+[137]    0.0    0.00    0.00       1         stbi__decode_jpeg_header [137]
+                0.00    0.00      11/11          stbi__get8 [71]
+                0.00    0.00       4/11          stbi__process_marker [72]
+                0.00    0.00       4/1219        stbi__stdio_read [32]
+                0.00    0.00       3/15          stbi__get16be [55]
+-----------------------------------------------
+                0.00    0.00       1/1           stbi__load_main [140]
+[138]    0.0    0.00    0.00       1         stbi__decode_jpeg_image [138]
+                0.00    0.00   13824/13824       stbi__idct_simd [27]
+                0.00    0.00   13824/13824       stbi__jpeg_decode_block [28]
+                0.00    0.00      28/2641        stbi__grow_buffer_unsafe [30]
+                0.00    0.00       7/11          stbi__process_marker [72]
+                0.00    0.00       1/1           stbi__decode_jpeg_header [137]
+-----------------------------------------------
+                0.00    0.00       1/1           stbi_load_from_file [142]
+[139]    0.0    0.00    0.00       1         stbi__load_and_postprocess_8bit [139]
+                0.00    0.00       1/1           stbi__load_main [140]
+-----------------------------------------------
+                0.00    0.00       1/1           stbi__load_and_postprocess_8bit [139]
+[140]    0.0    0.00    0.00       1         stbi__load_main [140]
+                0.00    0.00    1152/1152        stbi__resample_row_v_2 [33]
+                0.00    0.00     576/576         resample_row_1 [36]
+                0.00    0.00     576/576         stbi__YCbCr_to_RGB_simd [37]
+                0.00    0.00       1/1           stbi__decode_jpeg_image [138]
+-----------------------------------------------
+                0.00    0.00       1/1           load_image_stb [123]
+[141]    0.0    0.00    0.00       1         stbi_load [141]
+                0.00    0.00       1/1           stbi_load_from_file [142]
+-----------------------------------------------
+                0.00    0.00       1/1           stbi_load [141]
+[142]    0.0    0.00    0.00       1         stbi_load_from_file [142]
+                0.00    0.00       1/1219        stbi__stdio_read [32]
+                0.00    0.00       1/1           stbi__load_and_postprocess_8bit [139]
+-----------------------------------------------
+                0.00    0.00       1/1           replace_image_to_label [135]
+[143]    0.0    0.00    0.00       1         trim [143]
+                0.00    0.00       1/2755        xcalloc_location [29]
+-----------------------------------------------
+                0.00    0.00       1/1           forward_network [8]
+[144]    0.0    0.00    0.00       1         upsample_cpu [144]
+-----------------------------------------------
+                0.00    0.00       2/2           __libc_csu_init [1085]
+[1063]   0.0    0.00    0.00       2         _init [1063]
+-----------------------------------------------
+
+ This table describes the call tree of the program, and was sorted by
+ the total amount of time spent in each function and its children.
+
+ Each entry in this table consists of several lines.  The line with the
+ index number at the left hand margin lists the current function.
+ The lines above it list the functions that called this function,
+ and the lines below it list the functions this one called.
+ This line lists:
+     index	A unique number given to each element of the table.
+		Index numbers are sorted numerically.
+		The index number is printed next to every function name so
+		it is easier to look up where the function is in the table.
+
+     % time	This is the percentage of the `total' time that was spent
+		in this function and its children.  Note that due to
+		different viewpoints, functions excluded by options, etc,
+		these numbers will NOT add up to 100%.
+
+     self	This is the total amount of time spent in this function.
+
+     children	This is the total amount of time propagated into this
+		function by its children.
+
+     called	This is the number of times the function was called.
+		If the function called itself recursively, the number
+		only includes non-recursive calls, and is followed by
+		a `+' and the number of recursive calls.
+
+     name	The name of the current function.  The index number is
+		printed after it.  If the function is a member of a
+		cycle, the cycle number is printed between the
+		function's name and the index number.
+
+
+ For the function's parents, the fields have the following meanings:
+
+     self	This is the amount of time that was propagated directly
+		from the function into this parent.
+
+     children	This is the amount of time that was propagated from
+		the function's children into this parent.
+
+     called	This is the number of times this parent called the
+		function `/' the total number of times the function
+		was called.  Recursive calls to the function are not
+		included in the number after the `/'.
+
+     name	This is the name of the parent.  The parent's index
+		number is printed after it.  If the parent is a
+		member of a cycle, the cycle number is printed between
+		the name and the index number.
+
+ If the parents of the function cannot be determined, the word
+ `<spontaneous>' is printed in the `name' field, and all the other
+ fields are blank.
+
+ For the function's children, the fields have the following meanings:
+
+     self	This is the amount of time that was propagated directly
+		from the child into the function.
+
+     children	This is the amount of time that was propagated from the
+		child's children to the function.
+
+     called	This is the number of times the function called
+		this child `/' the total number of times the child
+		was called.  Recursive calls by the child are not
+		listed in the number after the `/'.
+
+     name	This is the name of the child.  The child's index
+		number is printed after it.  If the child is a
+		member of a cycle, the cycle number is printed
+		between the name and the index number.
+
+ If there are any cycles (circles) in the call graph, there is an
+ entry for the cycle-as-a-whole.  This entry shows who called the
+ cycle (as parents) and the members of the cycle (as children.)
+ The `+' recursive calls entry shows the number of function calls that
+ were internal to the cycle, and the calls entry for each member shows,
+ for that member, how many times it was called from other members of
+ the cycle.
+
+Copyright (C) 2012-2020 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
+
+Index by function name
+
+ [1063] _init                 [61] get_activation         [15] parse_convolutional
+  [67] activate_array         [94] get_classes_multipliers [79] parse_maxpool
+  [58] activate_array_cpu_custom [62] get_convolutional_workspace_size [130] parse_net_options
+  [59] add_bias              [115] get_current_batch      [16] parse_network_cfg_custom
+ [105] basecfg               [116] get_labels_custom     [101] parse_route
+   [5] box_intersection      [117] get_network_boxes     [131] parse_upsample
+   [4] box_iou                [95] get_network_output    [102] parse_yolo
+   [6] box_union             [118] get_network_output_size [103] parse_yolo_mask
+ [106] calculate_binary_weights [96] get_paths            [17] rand_uniform
+  [47] convolutional_out_height [119] get_policy         [132] read_boxes
+  [48] convolutional_out_width [63] get_workspace_size16 [133] read_cfg
+  [84] copy_cpu               [64] get_workspace_size32  [134] read_data_cfg
+ [107] copy_string            [31] get_yolo_box           [44] read_option
+  [91] correct_yolo_boxes     [97] get_yolo_detections   [135] replace_image_to_label
+ [108] custom_hash            [20] im2col_cpu_ext         [36] resample_row_1
+  [24] detections_comparator  [57] is_avx                 [21] resize_image
+   [3] do_nms_sort            [65] is_fma_avx2            [80] scal_add_cpu
+  [39] fgetl                 [120] is_network            [136] set_train_only_bn
+  [56] fill_cpu               [40] list_insert            [37] stbi__YCbCr_to_RGB_simd
+ [109] fill_network_boxes     [98] list_to_array          [81] stbi__build_huffman
+  [68] find_arg               [66] load_convolutional_weights [137] stbi__decode_jpeg_header
+  [76] find_char_arg         [121] load_data_in_thread   [138] stbi__decode_jpeg_image
+  [85] find_float_arg        [122] load_image             [55] stbi__get16be
+  [73] find_int_arg          [123] load_image_stb         [71] stbi__get8
+  [74] find_replace          [124] load_weights           [30] stbi__grow_buffer_unsafe
+  [69] find_replace_extension [125] load_weights_upto     [27] stbi__idct_simd
+  [10] forward_convolutional_layer [14] make_convolutional_layer [28] stbi__jpeg_decode_block
+  [18] forward_maxpool_layer  [89] make_empty_image       [26] stbi__jpeg_huff_decode
+  [19] forward_maxpool_layer_avx [90] make_image         [139] stbi__load_and_postprocess_8bit
+   [8] forward_network        [46] make_list             [140] stbi__load_main
+  [92] forward_route_layer    [77] make_maxpool_layer     [72] stbi__process_marker
+ [110] forward_upsample_layer [126] make_network          [33] stbi__resample_row_v_2
+  [93] forward_yolo_layer    [127] make_network_boxes     [82] stbi__skip
+  [70] free_convolutional_batchnorm [99] make_route_layer [32] stbi__stdio_read
+ [111] free_detections       [128] make_upsample_layer    [83] stbi__stdio_skip
+  [86] free_image            [100] make_yolo_layer       [141] stbi_load
+  [51] free_layer              [9] network_predict       [142] stbi_load_from_file
+  [52] free_layer_custom     [129] num_detections         [54] string_to_layer_type
+  [87] free_list              [34] option_find            [41] strip
+ [112] free_list_contents_kvp [75] option_find_float      [13] to_tblr
+ [113] free_network           [42] option_find_float_quiet [143] trim
+  [88] free_node              [45] option_find_int       [144] upsample_cpu
+ [114] free_ptrs              [38] option_find_int_quiet   [1] validate_detector_map
+  [49] free_section           [50] option_find_str        [29] xcalloc_location
+  [23] fuse_conv_batchnorm    [78] option_find_str_quiet  [35] xmalloc_location
+  [60] gemm                   [43] option_insert          [25] xrealloc_location
+  [12] gemm_cpu               [53] option_unused         [104] yolo_num_detections
+  [11] gemm_nn                 [7] overlap

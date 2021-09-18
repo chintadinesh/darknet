@@ -1,4 +1,76 @@
 #! /bin/bash
 
-./darknet detector test cfg/coco.data cfg/yolov3-tiny.cfg yolov3-tiny.weights data/dog.jpg
-gprof darknet gmon.out > darknet.perf
+#./darknet detector test cfg/coco.data cfg/yolov3-tiny.cfg yolov3-tiny.weights\
+# data/dog.jpg -save_labels
+
+#TODO: print the cmd in the logfile
+
+
+var=withscale_int_round
+run_type=test
+
+made_changes=1
+
+rm gmon.out 
+
+#echo "### scale = $scale"
+#sed -ie "s/int scale = [0-9]\+;/int scale = $scale;/" src/darknet.c
+
+if [ "$var" = "fpx" ]; then
+    sed -ie "s/bool use_fx_conv = [0-1];/bool use_fx_conv = 0;/" src/darknet.c
+elif [ "$var" = "fx" ]; then 
+    sed -ie "s/bool use_fx_conv = [0-1];/bool use_fx_conv = 1;/" src/darknet.c
+elif [ "$var" = "withscale_int_round" ]; then 
+    sed -ie "s/bool use_fx_conv = [0-1];/bool use_fx_conv = 0;/" src/darknet.c
+    sed -ie "s/bool use_withscale_int_round = [0-1];/bool use_withscale_int_round = 1;/" src/darknet.c
+    sed -ie "s/bool use_cnative_round = [0-1];/bool use_cnative_round = 0;/" src/darknet.c
+elif [ "$var" = "cnative_round" ]; then 
+    sed -ie "s/bool use_fx_conv = [0-1];/bool use_fx_conv = 0;/" src/darknet.c
+    sed -ie "s/bool use_cnative_round = [0-1];/bool use_cnative_round = 1;/" src/darknet.c
+elif [ "$var" = "scale_res" ]; then 
+    scale=23;
+else
+    echo "*** Error making changes executable. Please select a valid var type"
+    made_changes=0;
+fi
+
+#grep_res=$(grep -re "int scale = .*" src/darknet.c);
+#echo "#### $grep_res"
+
+echo "*** Building binaries"
+make -j4;
+
+if [ $made_changes -eq 1 ]; then
+    ts=$(date "+%H%M%S.%d%m%Y")
+    if [ "$run_type" = "map" ]; then
+        ./darknet detector $run_type cfg/coco.data cfg/yolov3-tiny.cfg yolov3-tiny.weights 2>&1 | tee log/$run_type.$var.$ts
+    elif [ "$run_type" = "test" ]; then 
+        ./darknet detector $run_type cfg/coco.data cfg/yolov3-tiny.cfg yolov3-tiny.weights data/dog.jpg 2>&1 tee log/$run_type.$var.$ts;
+    else
+        echo "***Error run unsuccessful, please select a valid run_type";
+    fi
+
+    gprof darknet gmon.out > perf_results/darknet.perf.$var.$run_type.$(date "+%H%M%S.%d%m%Y") 
+fi
+
+
+<<com
+elif [ "$var" = "com" ]; then 
+    for scale in {23..27};
+    do
+        echo "Scale = $scale";
+        sed -ie "s/int scale = [0-9]\+\s*;/int scale = $scale;/" src/darknet.c
+        echo "Building project..."
+        make -j4 1> /dev/null
+        echo $(./darknet detector $run_type cfg/coco.data cfg/yolov3-tiny.cfg yolov3-tiny.weights) 2>&1 log/$run_type.$scale.$(date "+%H%M%S.%d%m%Y"); 
+    done;
+com
+
+
+<<snr_test
+elif [ "$var" = "snr_test" ]; then 
+    #For testing standalone gemm
+    make -j4 > /dev/null
+    ./darknet 2>&1 | tee log/snr.$(date "+%H%M%S.%d%m%Y"); 
+    snr_test
+snr_test
