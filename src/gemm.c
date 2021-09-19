@@ -2102,6 +2102,7 @@ void gemm_nn(int M, int N, int K, float ALPHA,
 
                 //printf("A_PART num = %d\n", tmp_k_mult);
 
+		#pragma omp parallel for
                 for (j = 0; j < N; ++j) {
                     //DTYPE res =  A_PART * __roundup(B[k*ldb + j] * (1 << scale));
 
@@ -2121,7 +2122,9 @@ void gemm_nn(int M, int N, int K, float ALPHA,
         DTYPE ALPHA_con = (int)(ALPHA * (1 << scale));
         //printf("ALPHA = %d\n", ALPHA_con);
 
+        #pragma omp parallel for
         for (i = 0; i < M; ++i) {
+            #pragma omp parallel for
             for (k = 0; k < K; ++k) {
                 //tmp_k_mult = ((ALPHA_con * round(A[i * lda + k] * (1 << scale))) >> scale);
 
@@ -2134,6 +2137,7 @@ void gemm_nn(int M, int N, int K, float ALPHA,
 
                 //printf("A_PART num = %d\n", tmp_k_mult);
 
+		#pragma omp parallel for
                 for (j = 0; j < N; ++j) {
                     //DTYPE res =  A_PART * round(B[k*ldb + j] * (1 << scale));
 
@@ -2193,6 +2197,7 @@ void gemm_nn(int M, int N, int K, float ALPHA,
 
                 //printf("A_PART num = %d\n", tmp_k_mult);
 
+		#pragma omp parallel for
                 for (j = 0; j < N; ++j) {
                     //DTYPE res =  A_PART * round(B[k*ldb + j] * (1 << scale));
 
