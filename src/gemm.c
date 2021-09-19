@@ -2122,8 +2122,11 @@ void gemm_nn(int M, int N, int K, float ALPHA,
         DTYPE ALPHA_con = (int)(ALPHA * (1 << scale));
         //printf("ALPHA = %d\n", ALPHA_con);
 
-        #pragma omp parallel for
+	// M=1 for many cases, there is no need for this
+        //#pragma omp parallel for
         for (i = 0; i < M; ++i) {
+
+	    // experimenting without the outer pragma
             #pragma omp parallel for
             for (k = 0; k < K; ++k) {
                 //tmp_k_mult = ((ALPHA_con * round(A[i * lda + k] * (1 << scale))) >> scale);
@@ -2150,6 +2153,9 @@ void gemm_nn(int M, int N, int K, float ALPHA,
 
                     // experiment with not converting back to float but just
                     // bit shifting
+
+		    // debug print to ensure that this code block is executed
+		    // printf("Hello use_withscale_int_round\n");
                     C[i*ldc + j] 
                         += ( (float)(
                                      (A_PART * (int)(B[k*ldb + j] * (1 << scale))) 
@@ -2906,6 +2912,8 @@ void gemm_cpu(int TA, int TB, int M, int N, int K, float ALPHA,
     }
     else {
         int t;
+
+	/* Unrolling this loop
         #pragma omp parallel for
         for (t = 0; t < M; ++t) {
             if (!TA && !TB)
@@ -2917,6 +2925,16 @@ void gemm_cpu(int TA, int TB, int M, int N, int K, float ALPHA,
             else
                 gemm_tt(1, N, K, ALPHA, A + t, lda, B, ldb, C + t*ldc, ldc);
         }
+	*/ // send M directly
+
+            if (!TA && !TB)
+                gemm_nn(M, N, K, ALPHA, A + t*lda, lda, B, ldb, C + t*ldc, ldc);
+            else if (TA && !TB)
+                gemm_tn(M, N, K, ALPHA, A + t, lda, B, ldb, C + t*ldc, ldc);
+            else if (!TA && TB)
+                gemm_nt(M, N, K, ALPHA, A + t*lda, lda, B, ldb, C + t*ldc, ldc);
+            else
+                gemm_tt(M, N, K, ALPHA, A + t, lda, B, ldb, C + t*ldc, ldc);
     }
 }
 
