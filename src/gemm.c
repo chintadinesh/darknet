@@ -2119,7 +2119,8 @@ void gemm_nn(int M, int N, int K, float ALPHA,
         }
     }
     else if(use_withscale_int_round){
-        DTYPE ALPHA_con = (int)(ALPHA * (1 << scale));
+	PUT_IN_REGISTER DTYPE SCALE_NUM = (1 << scale);
+        DTYPE ALPHA_con = (int)(ALPHA * SCALE_NUM);
         //printf("ALPHA = %d\n", ALPHA_con);
 
 	// M=1 for many cases, there is no need for this
@@ -2136,7 +2137,7 @@ void gemm_nn(int M, int N, int K, float ALPHA,
 
                 //PUT_IN_REGISTER int A_PART = tmp_k_mult; 
 
-                PUT_IN_REGISTER int A_PART = ((ALPHA_con * (int)(A[i * lda + k] * (1 << scale))) >> scale);
+                PUT_IN_REGISTER int A_PART = ((ALPHA_con * (int)(A[i * lda + k] * SCALE_NUM)) >> scale);
 
                 //printf("A_PART num = %d\n", tmp_k_mult);
 
@@ -2158,9 +2159,9 @@ void gemm_nn(int M, int N, int K, float ALPHA,
 		    // printf("Hello use_withscale_int_round\n");
                     C[i*ldc + j] 
                         += ( (float)(
-                                     (A_PART * (int)(B[k*ldb + j] * (1 << scale))) 
+                                     (A_PART * (int)(B[k*ldb + j] * SCALE_NUM)) 
                                                     >> scale))
-                                                                    / ( 1 << scale);
+                                                                    / SCALE_NUM;
                                                                    
 
 
@@ -2913,7 +2914,6 @@ void gemm_cpu(int TA, int TB, int M, int N, int K, float ALPHA,
     else {
         int t;
 
-	/* Unrolling this loop
         #pragma omp parallel for
         for (t = 0; t < M; ++t) {
             if (!TA && !TB)
@@ -2925,16 +2925,6 @@ void gemm_cpu(int TA, int TB, int M, int N, int K, float ALPHA,
             else
                 gemm_tt(1, N, K, ALPHA, A + t, lda, B, ldb, C + t*ldc, ldc);
         }
-	*/ // send M directly
-
-            if (!TA && !TB)
-                gemm_nn(M, N, K, ALPHA, A + t*lda, lda, B, ldb, C + t*ldc, ldc);
-            else if (TA && !TB)
-                gemm_tn(M, N, K, ALPHA, A + t, lda, B, ldb, C + t*ldc, ldc);
-            else if (!TA && TB)
-                gemm_nt(M, N, K, ALPHA, A + t*lda, lda, B, ldb, C + t*ldc, ldc);
-            else
-                gemm_tt(M, N, K, ALPHA, A + t, lda, B, ldb, C + t*ldc, ldc);
     }
 }
 

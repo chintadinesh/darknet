@@ -8,6 +8,8 @@
 #include "box.h"
 #include <stdio.h>
 #include <time.h>
+#include <omp.h>
+
 
 #ifdef AI2
 #include "xnor_layer.h"
@@ -1233,14 +1235,18 @@ void forward_convolutional_layer(convolutional_layer l, network_state state)
     static int u = 0;
     u++;
 
+    //#pragma omp parallel for
     for(i = 0; i < l.batch; ++i)
     {
+	//#pragma omp parallel for
         for (j = 0; j < l.groups; ++j)
         {
             float *a = l.weights +j*l.nweights / l.groups;
             float *b = state.workspace;
             float *c = l.output +(i*l.groups + j)*n*m;
 
+	    /*** // removing training and other irelaven code for enabling omp
+	     
             //gemm(0,0,m,n,k,1,a,k,b,n,1,c,n);
             //gemm_nn_custom(m, n, k, 1, a, k, b, n, c, n);
             if (l.xnor && l.align_bit_weights && !state.train && l.stride_x == l.stride_y)
@@ -1367,6 +1373,9 @@ void forward_convolutional_layer(convolutional_layer l, network_state state)
 
             }
             else {
+
+	    */ // removing training and other irelavent code for enabling omp
+
                 //printf(" l.index = %d - FP32 \n", l.index);
                 float *im = state.input + (i*l.groups + j)*(l.c / l.groups)*l.h*l.w;
                 if (l.size == 1 && l.stride == 1 && l.dilation == 1) {
@@ -1388,7 +1397,7 @@ void forward_convolutional_layer(convolutional_layer l, network_state state)
 
                 gemm(0, 0, m, n, k, 1, a, k, b, n, 1, c, n);
                 // bit-count to float
-            }
+            //}
             //c += n*m;
             //state.input += l.c*l.h*l.w;
         }
