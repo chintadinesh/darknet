@@ -63,7 +63,9 @@ void im2col_cpu_ext(const float* data_im, const int channels,
         (dilation_w * (kernel_w - 1) + 1)) / stride_w + 1;
     const int channel_size = height * width;
     int channel, kernel_row, kernel_col, output_rows, output_col;
+
     for (channel = channels; channel--; data_im += channel_size) {
+	//#pragma omp parallel for
         for (kernel_row = 0; kernel_row < kernel_h; kernel_row++) {
             for (kernel_col = 0; kernel_col < kernel_w; kernel_col++) {
                 int input_row = -pad_h + kernel_row * dilation_h;

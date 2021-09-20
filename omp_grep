@@ -1,0 +1,299 @@
+src/activations.c:        #pragma omp parallel for
+src/activations.c:        #pragma omp parallel for
+src/activations.c:    #pragma omp parallel for
+src/activations.c:    #pragma omp parallel for
+src/activations.c:    #pragma omp parallel for
+src/activations.c:    #pragma omp parallel for
+src/activations.c:    #pragma omp parallel for
+src/activations.c:    #pragma omp parallel for
+src/activations.c:    #pragma omp parallel for
+src/activations.c:    #pragma omp parallel for
+src/activations.c:    #pragma omp parallel for
+src/activations.c:    #pragma omp parallel for
+src/activations.c:    #pragma omp parallel for
+src/blas.c:    #pragma omp parallel for
+src/blas.c:    #pragma omp parallel for
+src/blas.h:void compare_2_arrays_gpu(float *one, float *two, int size);
+src/blas_kernels.cu:__global__ void compare_2_arrays_kernel(float *one, float *two, int size)
+src/blas_kernels.cu:void compare_2_arrays_gpu(float *one, float *two, int size)
+src/blas_kernels.cu:    compare_2_arrays_kernel << <num_blocks, BLOCK, 0, get_cuda_stream() >> >(one, two, size);
+src/blas_kernels.cu:        // compensate for dropped items
+src/blas_kernels.cu:            // compensate for dropped items
+src/blas_kernels.cu:            // compensate for dropped items
+src/blas_kernels.cu:            // compensate for dropped items
+src/blas_kernels.cu:            // compensate for dropped items
+src/box.c:// where c is the smallest box that fully encompases a and b
+src/box.c:int nms_comparator(const void *pa, const void *pb)
+src/box.c:        qsort(s, total, sizeof(sortable_bbox), nms_comparator);
+src/box.c:int nms_comparator_v3(const void *pa, const void *pb)
+src/box.c:    qsort(dets, total, sizeof(detection), nms_comparator_v3);
+src/box.c:        qsort(dets, total, sizeof(detection), nms_comparator_v3);
+src/box.c:        qsort(dets, total, sizeof(detection), nms_comparator_v3);
+src/coco.c:    char *base = "results/comp4_det_test_";
+src/col2im_kernels.cu:        // compute the start and end of the output
+src/col2im_kernels.cu:        // compute the start and end of the output
+src/compare.c:void train_compare(char *cfgfile, char *weightfile)
+src/compare.c:    list *plist = get_paths("data/compare.train.list");
+src/compare.c:void validate_compare(char *filename, char *weightfile)
+src/compare.c:    list *plist = get_paths("data/compare.val.list");
+src/compare.c:    //list *plist = get_paths("data/compare.val.old");
+src/compare.c:int total_compares = 0;
+src/compare.c:int elo_comparator(const void*a, const void *b)
+src/compare.c:int bbox_comparator(const void *a, const void *b)
+src/compare.c:    ++total_compares;
+src/compare.c:    ++total_compares;
+src/compare.c:    list *plist = get_paths("data/compare.sort.list");
+src/compare.c:    //list *plist = get_paths("data/compare.val.old");
+src/compare.c:    qsort(boxes, N, sizeof(sortable_bbox), bbox_comparator);
+src/compare.c:    printf("Sorted in %d compares, %f secs\n", total_compares, sec(clock()-time));
+src/compare.c:    list *plist = get_paths("data/compare.sort.list");
+src/compare.c:    //list *plist = get_paths("data/compare.small.list");
+src/compare.c:    //list *plist = get_paths("data/compare.cat.list");
+src/compare.c:    //list *plist = get_paths("data/compare.val.old");
+src/compare.c:        qsort(boxes, N, sizeof(sortable_bbox), elo_comparator);
+src/compare.c:            qsort(boxes, N, sizeof(sortable_bbox), elo_comparator);
+src/compare.c:    printf("Tournament in %d compares, %f secs\n", total_compares, sec(clock()-time));
+src/compare.c:void run_compare(int argc, char **argv)
+src/compare.c:    if(0==strcmp(argv[2], "train")) train_compare(cfg, weights);
+src/compare.c:    else if(0==strcmp(argv[2], "valid")) validate_compare(cfg, weights);
+src/convolutional_kernels.cu:    //if (idx < size) output_f16[idx] = __float2half_rn(input_f32[idx]); // can't be compiled on Linux without casting
+src/convolutional_kernels.cu:                // compared to FP32, it's just that the statistics and value adjustment should be done in FP32.
+src/convolutional_kernels.cu:        //   so we should copy f32 to f16, or compute: f16=(w_up - w*d*b*s)*m
+src/convolutional_layer.c:    // TRUE_HALF_CONFIG is only supported on architectures with true fp16 support (compute capability 5.3 and 6.0):
+src/convolutional_layer.c:    //   on architectures with DP4A support (compute capability 6.1 and later).
+src/cost_layer.c:int float_abs_compare (const void * a, const void * b)
+src/cost_layer.c:        qsort(l.delta, l.batch*l.inputs, sizeof(float), float_abs_compare);
+src/dark_cuda.c:extern void run_compare(int argc, char **argv);
+src/dark_cuda.c:        printf("\n Currently Darknet doesn't support -nogpu flag. If you want to use CPU - please compile Darknet with GPU=0 in the Makefile, or compile darknet_no_gpu.sln on Windows.\n");
+src/dark_cuda.c:    } else if (0 == strcmp(argv[1], "compare")){
+src/dark_cuda.c:        run_compare(argc, argv);
+src/dark_cuda.c:        composite_3d(argv[2], argv[3], argv[4], (argc > 5) ? atof(argv[5]) : 0);
+src/dark_cuda.c:extern void run_compare(int argc, char **argv);
+src/dark_cuda.c:        printf("\n Currently Darknet doesn't support -nogpu flag. If you want to use CPU - please compile Darknet with GPU=0 in the Makefile, or compile darknet_no_gpu.sln on Windows.\n");
+src/dark_cuda.c:    } else if (0 == strcmp(argv[1], "compare")){
+src/dark_cuda.c:        run_compare(argc, argv);
+src/dark_cuda.c:        composite_3d(argv[2], argv[3], argv[4], (argc > 5) ? atof(argv[5]) : 0);
+src/dark_cuda.c:float cuda_compare(float *x_gpu, float *x, size_t n, char *s)
+src/dark_cuda.c:int get_gpu_compute_capability(int i, char *device_name)
+src/dark_cuda.h:    float cuda_compare(float *x_gpu, float *x, size_t n, char *s);
+src/dark_cuda.h:    int get_gpu_compute_capability(int i, char *device_name);
+src/darknet.c:extern void run_compare(int argc, char **argv);
+src/darknet.c:        printf("\n Currently Darknet doesn't support -nogpu flag. If you want to use CPU - please compile Darknet with GPU=0 in the Makefile, or compile darknet_no_gpu.sln on Windows.\n");
+src/darknet.c:    } else if (0 == strcmp(argv[1], "compare")){
+src/darknet.c:        run_compare(argc, argv);
+src/darknet.c:        composite_3d(argv[2], argv[3], argv[4], (argc > 5) ? atof(argv[5]) : 0);
+src/darknet.ce:extern void run_compare(int argc, char **argv);
+src/darknet.ce:        printf("\n Currently Darknet doesn't support -nogpu flag. If you want to use CPU - please compile Darknet with GPU=0 in the Makefile, or compile darknet_no_gpu.sln on Windows.\n");
+src/darknet.ce:    } else if (0 == strcmp(argv[1], "compare")){
+src/darknet.ce:        run_compare(argc, argv);
+src/darknet.ce:        composite_3d(argv[2], argv[3], argv[4], (argc > 5) ? atof(argv[5]) : 0);
+src/data.c:data load_data_compare(int n, char **paths, int m, int classes, int w, int h)
+src/data.c:    #pragma omp parallel for
+src/data.c:        printf("\n mosaic=1 - compile Darknet with OpenCV for using mosaic=1 \n");
+src/data.c:        *a.d = load_data_compare(a.n, a.paths, a.m, a.classes, a.w, a.h);
+src/detector.c:typedef int (*__compar_fn_t)(const void*, const void*);
+src/detector.c:typedef __compar_fn_t comparison_fn_t;
+src/detector.c:        if (!outfile) outfile = "comp4_det_test_";
+src/detector.c:int detections_comparator(const void *pa, const void *pb)
+src/detector.c:    // For multi-class precision and recall computation
+src/detector.c:    qsort(detections, detections_count, sizeof(box_prob), detections_comparator);
+src/detector.c:int anchors_comparator(const void *pa, const void *pb)
+src/detector.c:int anchors_data_comparator(const float **pa, const float **pb)
+src/detector.c:    qsort((void*)anchors_data.centers.vals, num_of_clusters, 2 * sizeof(float), (__compar_fn_t)anchors_data_comparator);
+src/detector.c.orig:typedef int (*__compar_fn_t)(const void*, const void*);
+src/detector.c.orig:typedef __compar_fn_t comparison_fn_t;
+src/detector.c.orig:        if (!outfile) outfile = "comp4_det_test_";
+src/detector.c.orig:int detections_comparator(const void *pa, const void *pb)
+src/detector.c.orig:    // For multi-class precision and recall computation
+src/detector.c.orig:    qsort(detections, detections_count, sizeof(box_prob), detections_comparator);
+src/detector.c.orig:int anchors_comparator(const void *pa, const void *pb)
+src/detector.c.orig:int anchors_data_comparator(const float **pa, const float **pb)
+src/detector.c.orig:    qsort((void*)anchors_data.centers.vals, num_of_clusters, 2 * sizeof(float), (__compar_fn_t)anchors_data_comparator);
+src/gaussian_yolo_layer.c:int compare_gaussian_yolo_class(float *output, int classes, int class_index, int stride, float objectness, int class_id, float conf_thresh)
+src/gaussian_yolo_layer.c:                        int class_id_match = compare_gaussian_yolo_class(l.output, l.classes, class_index, l.w*l.h, objectness, class_id, 0.25f);
+src/gemm.c:#include <omp.h>
+src/gemm.c:            printf("[DEBUG] Computing snr for scale = %d\n", scale);
+src/gemm.c:            compute_snr(A, B, Cfx, C, M, K, N, lda, ldb, ldc, scale);
+src/gemm.c:#pragma omp parallel for
+src/gemm.c:#pragma omp parallel for
+src/gemm.c:    #pragma omp parallel for
+src/gemm.c:    #pragma omp parallel for
+src/gemm.c:                    // partially computed result
+src/gemm.c:    #pragma omp parallel for
+src/gemm.c:    #pragma omp parallel for
+src/gemm.c:    #pragma omp parallel for      // "omp parallel for" - automatic parallelization of loop by using OpenMP
+src/gemm.c:        max_num_threads = omp_get_max_threads();
+src/gemm.c:        //omp_set_num_threads( max_num_threads / 2);
+src/gemm.c:    #pragma omp parallel for      // "omp parallel for" - automatic parallelization of loop by using OpenMP
+src/gemm.c:        max_num_threads = omp_get_max_threads();
+src/gemm.c:        //omp_set_num_threads(max_num_threads / 2);
+src/gemm.c:    //#pragma omp parallel for
+src/gemm.c:    #pragma omp parallel for
+src/gemm.c:        #pragma omp parallel for
+src/gemm.c:        #pragma omp parallel for
+src/gemm.c:        #pragma omp parallel for
+src/gemm.c:        #pragma omp parallel for
+src/gemm.c:        #pragma omp parallel for
+src/gemm.c:    #pragma omp parallel for
+src/gemm.c:        #pragma omp parallel for
+src/gemm.c:    /* Uncomment for floating point computations
+src/gemm.c:    //Uncomment for int point computations
+src/gemm.c:		#pragma omp parallel for
+src/gemm.c:        #pragma omp parallel for
+src/gemm.c:            #pragma omp parallel for
+src/gemm.c:		#pragma omp parallel for
+src/gemm.c:		#pragma omp parallel for
+src/gemm.c:    #pragma omp parallel for
+src/gemm.c:    #pragma omp parallel for
+src/gemm.c:    #pragma omp parallel for      // "omp parallel for" - automatic parallelization of loop by using OpenMP
+src/gemm.c:    #pragma omp parallel for
+src/gemm.c:        #pragma omp parallel for
+src/gemm.c:        #pragma omp parallel for
+src/gemm.c:    //#pragma omp parallel for
+src/gemm.c:    #pragma omp parallel for
+src/gemm.c:        #pragma omp parallel for
+src/gemm.c:    //#pragma omp parallel for
+src/gemm.c:    #pragma omp parallel for
+src/gemm.c:    #pragma omp parallel for
+src/gemm.c:        #pragma omp parallel for
+src/getopt.c: * Compute the greatest common divisor of a and b.
+src/getopt.c:	 * compute lengths of blocks and number and size of cycles
+src/getopt.c:	 *                 optreset != 0 for GNU compatibility.
+src/getopt.h: * Compute the greatest common divisor of a and b.
+src/getopt.h: * ...for the long form API only; keep this for compatibility.
+src/httplib.h:    return std::lexicographical_compare(
+src/httplib.h:                                 bool compress = false);
+src/httplib.h:                                 bool compress = false);
+src/httplib.h:                                 bool compress = false);
+src/httplib.h:                                 bool compress = false);
+src/httplib.h:                                 bool compress = false);
+src/httplib.h:                                 const Params &params, bool compress = false);
+src/httplib.h:                                 bool compress = false);
+src/httplib.h:                                 bool compress = false);
+src/httplib.h:                                bool compress = false);
+src/httplib.h:                                bool compress = false);
+src/httplib.h:                                bool compress = false);
+src/httplib.h:                                bool compress = false);
+src/httplib.h:                                  bool compress = false);
+src/httplib.h:                                  bool compress = false);
+src/httplib.h:                                  bool compress = false);
+src/httplib.h:                                  bool compress = false);
+src/httplib.h:                             const char *content_type, bool compress);
+src/httplib.h:  std::vector<std::string> host_components_;
+src/httplib.h:    // Read component
+src/httplib.h:    if (!path.compare(beg, len, ".")) {
+src/httplib.h:    } else if (!path.compare(beg, len, "..")) {
+src/httplib.h:inline bool can_compress(const std::string &content_type) {
+src/httplib.h:inline bool compress(std::string &content) {
+src/httplib.h:  std::string compressed;
+src/httplib.h:    compressed.append(buff.data(), buff.size() - strm.avail_out);
+src/httplib.h:  content.swap(compressed);
+src/httplib.h:class decompressor {
+src/httplib.h:  decompressor() {
+src/httplib.h:    // that the stream to decompress will be formatted with a gzip wrapper.
+src/httplib.h:  ~decompressor() { inflateEnd(&strm); }
+src/httplib.h:  bool decompress(const char *data, size_t data_length, T callback) {
+src/httplib.h:  detail::decompressor decompressor;
+src/httplib.h:  if (!decompressor.is_valid()) {
+src/httplib.h:      return decompressor.decompress(
+src/httplib.h:        detail::can_compress(res.get_header_value("Content-Type"))) {
+src/httplib.h:      if (detail::compress(res.body)) {
+src/httplib.h:    ContentProvider content_provider, const char *content_type, bool compress) {
+src/httplib.h:  (void)compress;
+src/httplib.h:  if (compress) {
+src/httplib.h:    if (!detail::compress(req.body)) { return nullptr; }
+src/httplib.h:                                              bool compress) {
+src/httplib.h:  return Post(path, Headers(), body, content_type, compress);
+src/httplib.h:             const char *content_type, bool compress) {
+src/httplib.h:                                    content_type, compress);
+src/httplib.h:Client::Post(const char *path, const Params &params, bool compress) {
+src/httplib.h:  return Post(path, Headers(), params, compress);
+src/httplib.h:                                              bool compress) {
+src/httplib.h:              compress);
+src/httplib.h:             bool compress) {
+src/httplib.h:                                    content_type, compress);
+src/httplib.h:                                              bool compress) {
+src/httplib.h:              compress);
+src/httplib.h:             bool compress) {
+src/httplib.h:  return Post(path, Headers(), items, compress);
+src/httplib.h:             const MultipartFormDataItems &items, bool compress) {
+src/httplib.h:  return Post(path, headers, body, content_type.c_str(), compress);
+src/httplib.h:                                             bool compress) {
+src/httplib.h:  return Put(path, Headers(), body, content_type, compress);
+src/httplib.h:            const char *content_type, bool compress) {
+src/httplib.h:                                    content_type, compress);
+src/httplib.h:                                             bool compress) {
+src/httplib.h:             compress);
+src/httplib.h:            bool compress) {
+src/httplib.h:                                    content_type, compress);
+src/httplib.h:                                               bool compress) {
+src/httplib.h:  return Patch(path, Headers(), body, content_type, compress);
+src/httplib.h:              const char *content_type, bool compress) {
+src/httplib.h:                                    content_type, compress);
+src/httplib.h:                                               bool compress) {
+src/httplib.h:               compress);
+src/httplib.h:              bool compress) {
+src/httplib.h:                                    content_type, compress);
+src/httplib.h:                  host_components_.emplace_back(std::string(b, e));
+src/httplib.h:     component or component fragment. E.g., *.a.com matches foo.a.com but
+src/httplib.h:  std::vector<std::string> pattern_components;
+src/httplib.h:                  pattern_components.emplace_back(std::string(b, e));
+src/httplib.h:  if (host_components_.size() != pattern_components.size()) { return false; }
+src/httplib.h:  auto itr = pattern_components.begin();
+src/httplib.h:  for (const auto &h : host_components_) {
+src/httplib.h:                            !p.compare(0, p.size() - 1, h));
+src/http_stream.cpp:    int quality; // jpeg compression [1..100]
+src/im2col.c:// Function uses casting from int to unsigned to compare if value of
+src/im2col_kernels.cu:        //#pragma omp parallel for
+src/im2col_kernels.cu:        //#pragma omp parallel for
+src/im2col_kernels.cu:#pragma omp parallel for      // "omp parallel for" - automatic parallelization of loop by using OpenMP
+src/im2col_kernels.cu:#pragma omp parallel for      // "omp parallel for" - automatic parallelization of loop by using OpenMP
+src/image.c:void composite_image(image source, image dest, int dx, int dy)
+src/image.c:    composite_image(b, c, a.w + dx, 0);
+src/image.c:// compare to sort detection** by bbox.x
+src/image.c:int compare_by_lefts(const void *a_ptr, const void *b_ptr) {
+src/image.c:// compare to sort detection** by best_class probability
+src/image.c:int compare_by_probs(const void *a_ptr, const void *b_ptr) {
+src/image.c:    qsort(selected_detections, selected_detections_num, sizeof(*selected_detections), compare_by_lefts);
+src/image.c:    qsort(selected_detections, selected_detections_num, sizeof(*selected_detections), compare_by_probs);
+src/image.c:            //// for comparison with OpenCV version of DNN Darknet Yolo v2
+src/image.c:    fprintf(stderr, "Not compiled with OpenCV, saving to %s.png instead\n", name);
+src/image.c:void composite_3d(char *f1, char *f2, char *out, int delta)
+src/image.h:void composite_3d(char *f1, char *f2, char *out, int delta);
+src/image_opencv.cpp:extern int stbi_write_png(char const *filename, int w, int h, int comp, const void  *data, int stride_in_bytes);
+src/image_opencv.cpp:extern int stbi_write_jpg(char const *filename, int x, int y, int comp, const void  *data, int quality);
+src/maxpool_layer.c:            #pragma omp parallel for
+src/maxpool_layer.c:    #pragma omp parallel for
+src/network.c:void compare_networks(network n1, network n2, data test)
+src/network.c:                    double precomputed = l->scales[f] / (sqrt((double)l->rolling_variance[f] + .00001));
+src/network.c:                        l->weights[w_index] *= precomputed;
+src/network.h:void compare_networks(network n1, network n2, data d);
+src/network_kernels.cu:int time_comparator(const void *pa, const void *pb)
+src/network_kernels.cu:        qsort(sorted_avg_time_per_layer, net.n, sizeof(time_benchmark_layers), time_comparator);
+src/network_kernels.cu:        qsort(sorted_avg_time_per_layer, net.n, sizeof(time_benchmark_layers), time_comparator);
+src/parser.c:        int compute_capability = get_gpu_compute_capability(net->gpu_index, device_name);
+src/parser.c:        if (compute_capability >= 700) net->cudnn_half = 1;
+src/parser.c:        fprintf(stderr, " %d : compute_capability = %d, cudnn_half = %d, GPU: %s \n", net->gpu_index, compute_capability, net->cudnn_half, device_name);
+src/region_layer.c:    #pragma omp parallel for
+src/representation_layer.c:    #pragma omp parallel for
+src/sam_layer.c:    #pragma omp parallel for
+src/sam_layer.c:    #pragma omp parallel for
+src/scale_channels_layer.c:        #pragma omp parallel for
+src/scale_channels_layer.c:        #pragma omp parallel for
+src/scale_channels_layer.c:        #pragma omp parallel for
+src/scale_channels_layer.c:        #pragma omp parallel for
+src/sedZdWzCA:extern void run_compare(int argc, char **argv);
+src/shortcut_layer.c:        #pragma omp parallel for
+src/snr_test.c:        printf("[ERROR] Failed to read complete matrix. Here is what that is read:\n");
+src/snr_test.c:void compute_snr(float *A, 
+src/snr_test.c:        printf("[DEBUG] Computing snr for scale = %d\n", scale);
+src/snr_test.c:        compute_snr(A, B, Cin, Cout, M, K, N, lda, ldb, ldc, scale);
+src/snr_test.h:void compute_snr(float *A, 
+src/softmax_layer.c:        //#pragma omp parallel for
+src/softmax_layer.c:    #pragma omp parallel for
+src/yolo.c:    char *base = "results/comp4_det_test_";
+src/yolo_layer.c:int compare_yolo_class(float *output, int classes, int class_index, int stride, float objectness, int class_id, float conf_thresh)
+src/yolo_layer.c:                        int class_id_match = compare_yolo_class(l.output, l.classes, class_index, l.w * l.h, objectness, class_id, 0.25f);
+src/yolo_layer.c:            // Always compute classification loss both for iou + cls loss and for logging with mse loss
+src/yolo_layer.c:            // TODO: remove IOU loss fields before computing MSE on class
+src/yolo_layer.c:    // Compute scale given image w,h vs network w,h

@@ -32,7 +32,7 @@ bool use_withscale_int_round = 1;
 // experiments
 bool calclate_snr_for_img = 0;
 
-int scale = 4; // based on the best mAP got
+int scale = 13; // based on the best mAP got
 
 extern void predict_classifier(char *datacfg, char *cfgfile, char *weightfile, char *filename, int top);
 extern void run_voxel(int argc, char **argv);
