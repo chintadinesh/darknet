@@ -1,0 +1,327 @@
+ GPU isn't used 
+ OpenCV isn't used - data augmentation will be slow 
+   layer   filters  size/strd(dil)      input                output
+   0 conv     16       3 x 3/ 1    416 x 416 x   3 ->  416 x 416 x  16 0.150 BF
+   1 max                2x 2/ 2    416 x 416 x  16 ->  208 x 208 x  16 0.003 BF
+   2 conv     32       3 x 3/ 1    208 x 208 x  16 ->  208 x 208 x  32 0.399 BF
+   3 max                2x 2/ 2    208 x 208 x  32 ->  104 x 104 x  32 0.001 BF
+   4 conv     64       3 x 3/ 1    104 x 104 x  32 ->  104 x 104 x  64 0.399 BF
+   5 max                2x 2/ 2    104 x 104 x  64 ->   52 x  52 x  64 0.001 BF
+   6 conv    128       3 x 3/ 1     52 x  52 x  64 ->   52 x  52 x 128 0.399 BF
+   7 max                2x 2/ 2     52 x  52 x 128 ->   26 x  26 x 128 0.000 BF
+   8 conv    256       3 x 3/ 1     26 x  26 x 128 ->   26 x  26 x 256 0.399 BF
+   9 max                2x 2/ 2     26 x  26 x 256 ->   13 x  13 x 256 0.000 BF
+  10 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+  11 max                2x 2/ 1     13 x  13 x 512 ->   13 x  13 x 512 0.000 BF
+  12 conv   1024       3 x 3/ 1     13 x  13 x 512 ->   13 x  13 x1024 1.595 BF
+  13 conv    256       1 x 1/ 1     13 x  13 x1024 ->   13 x  13 x 256 0.089 BF
+  14 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+  15 conv    255       1 x 1/ 1     13 x  13 x 512 ->   13 x  13 x 255 0.044 BF
+  16 yolo
+[yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+  17 route  13 		                           ->   13 x  13 x 256 
+  18 conv    128       1 x 1/ 1     13 x  13 x 256 ->   13 x  13 x 128 0.011 BF
+  19 upsample                 2x    13 x  13 x 128 ->   26 x  26 x 128
+  20 route  19 8 	                           ->   26 x  26 x 384 
+  21 conv    256       3 x 3/ 1     26 x  26 x 384 ->   26 x  26 x 256 1.196 BF
+  22 conv    255       1 x 1/ 1     26 x  26 x 256 ->   26 x  26 x 255 0.088 BF
+  23 yolo
+[yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+Total BFLOPS 5.571 
+avg_outputs = 341534 
+Loading weights from yolov3-tiny.weights...mini_batch = 1, batch = 1, time_steps = 1, train = 0 
+Done! Loaded 24 layers from weights-file 
+
+ seen 64, trained: 32013 K-images (500 Kilo-batches_64) 
+ Detection layer: 16 - type = 28 
+ Detection layer: 23 - type = 28 
+data/person.jpg: Predicted in 10412.148000 milli-seconds.
+bicycle: 100%
+motorbike: 100%
+aeroplane: 100%
+bus: 100%
+train: 100%
+truck: 100%
+boat: 100%
+traffic light: 100%
+fire hydrant: 100%
+stop sign: 100%
+parking meter: 100%
+bench: 100%
+bird: 100%
+cat: 100%
+dog: 100%
+horse: 100%
+sheep: 100%
+cow: 100%
+elephant: 100%
+bear: 100%
+zebra: 100%
+giraffe: 100%
+backpack: 100%
+umbrella: 100%
+handbag: 100%
+tie: 100%
+suitcase: 100%
+skis: 100%
+snowboard: 100%
+sports ball: 100%
+kite: 100%
+baseball bat: 100%
+baseball glove: 100%
+skateboard: 100%
+surfboard: 100%
+tennis racket: 100%
+bottle: 100%
+fork: 100%
+knife: 100%
+spoon: 100%
+bowl: 100%
+orange: 100%
+broccoli: 100%
+hot dog: 100%
+donut: 100%
+cake: 100%
+chair: 100%
+sofa: 100%
+bed: 100%
+toilet: 100%
+tvmonitor: 100%
+laptop: 100%
+mouse: 100%
+keyboard: 100%
+cell phone: 100%
+microwave: 100%
+oven: 100%
+toaster: 100%
+sink: 100%
+refrigerator: 100%
+clock: 100%
+vase: 100%
+scissors: 100%
+teddy bear: 100%
+hair drier: 100%
+toothbrush: 100%
+apple: 100%
+toothbrush: 100%
+tie: 100%
+toothbrush: 100%
+tie: 100%
+toothbrush: 100%
+tie: 100%
+toothbrush: 100%
+tie: 100%
+toothbrush: 100%
+tie: 100%
+toothbrush: 100%
+tie: 100%
+toothbrush: 100%
+tie: 100%
+toothbrush: 100%
+toothbrush: 100%
+toothbrush: 100%
+toothbrush: 100%
+toothbrush: 100%
+cell phone: 100%
+cell phone: 100%
+person: 100%
+bicycle: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+car: 100%
+car: 100%
+car: 100%
+bicycle: 100%
+person: 100%
+cell phone: 100%
+toothbrush: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+person: 100%
+apple: 100%
+cell phone: 100%
+toothbrush: 100%
+person: 100%
+apple: 100%
+person: 100%
+person: 100%
+person: 100%
+bicycle: 100%
+motorbike: 100%
+aeroplane: 100%
+bus: 100%
+train: 100%
+truck: 100%
+boat: 100%
+traffic light: 100%
+fire hydrant: 100%
+stop sign: 100%
+parking meter: 100%
+bench: 100%
+bird: 100%
+cat: 100%
+sheep: 100%
+cow: 100%
+bear: 100%
+zebra: 100%
+giraffe: 100%
+tie: 100%
+skis: 100%
+snowboard: 100%
+sports ball: 100%
+kite: 100%
+baseball bat: 100%
+baseball glove: 100%
+skateboard: 100%
+surfboard: 100%
+bottle: 100%
+fork: 100%
+knife: 100%
+spoon: 100%
+bowl: 100%
+banana: 100%
+sandwich: 100%
+orange: 100%
+broccoli: 100%
+hot dog: 100%
+pizza: 100%
+donut: 100%
+cake: 100%
+chair: 100%
+sofa: 100%
+bed: 100%
+toilet: 100%
+tvmonitor: 100%
+laptop: 100%
+mouse: 100%
+remote: 100%
+keyboard: 100%
+cell phone: 100%
+microwave: 100%
+oven: 100%
+toaster: 100%
+sink: 100%
+refrigerator: 100%
+book: 100%
+clock: 100%
+vase: 100%
+scissors: 100%
+teddy bear: 100%
+hair drier: 100%
+toothbrush: 100%
+bicycle: 100%
+car: 100%
+motorbike: 100%
+aeroplane: 100%
+bus: 100%
+train: 100%
+truck: 100%
+boat: 100%
+traffic light: 100%
+fire hydrant: 100%
+parking meter: 100%
+bench: 100%
+bird: 100%
+cat: 100%
+dog: 100%
+horse: 100%
+sheep: 100%
+cow: 100%
+elephant: 100%
+bear: 100%
+zebra: 100%
+giraffe: 100%
+backpack: 100%
+umbrella: 100%
+tie: 100%
+suitcase: 100%
+skis: 100%
+snowboard: 100%
+sports ball: 100%
+kite: 100%
+baseball bat: 100%
+baseball glove: 100%
+skateboard: 100%
+surfboard: 100%
+tennis racket: 100%
+bottle: 100%
+fork: 100%
+knife: 100%
+spoon: 100%
+bowl: 100%
+banana: 100%
+broccoli: 100%
+hot dog: 100%
+donut: 100%
+cake: 100%
+chair: 100%
+sofa: 100%
+bed: 100%
+toilet: 100%
+tvmonitor: 100%
+laptop: 100%
+mouse: 100%
+keyboard: 100%
+microwave: 100%
+oven: 100%
+toaster: 100%
+sink: 100%
+refrigerator: 100%
+book: 100%
+clock: 100%
+vase: 100%
+scissors: 100%
+teddy bear: 100%
+hair drier: 100%
+toothbrush: 100%
+train: 100%
+traffic light: 100%
+fire hydrant: 100%
+parking meter: 100%
+horse: 100%
+cow: 100%
+snowboard: 100%
+sports ball: 100%
+baseball bat: 100%
+baseball glove: 100%
+broccoli: 100%
+hot dog: 100%
+sofa: 100%
+laptopNot compiled with OpenCV, saving to predictions.png instead
+: 100%
+mouse: 100%
+toaster: 100%
+book: 100%
+toothbrush: 100%

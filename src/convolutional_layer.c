@@ -10,6 +10,7 @@
 #include <time.h>
 #include <omp.h>
 
+extern int scale;
 
 #ifdef AI2
 #include "xnor_layer.h"
@@ -1396,6 +1397,7 @@ void forward_convolutional_layer(convolutional_layer l, network_state state)
                 }
 
                 gemm(0, 0, m, n, k, 1, a, k, b, n, 1, c, n);
+                //gemm(0, 0, m, n, k, (1<<scale), a, k, b, n, 1, c, n);
                 // bit-count to float
             //}
             //c += n*m;

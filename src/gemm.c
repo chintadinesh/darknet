@@ -8,6 +8,7 @@
 #include <float.h>
 #include <string.h>
 #include <stdint.h>
+
 #if defined(_OPENMP)
 #include <omp.h>
 #endif
@@ -2038,6 +2039,15 @@ void gemm_nn(int M, int N, int K, float ALPHA,
     float *A, int lda,
     float *B, int ldb,
     float *C, int ldc)
+
+/*
+//sending ALPHA pre-scaled
+void gemm_nn(int M, int N, int K, int ALPHA,
+    float *A, int lda,
+    float *B, int ldb,
+    float *C, int ldc)
+*/
+
 {
     int i, j, k;
 
@@ -2119,8 +2129,9 @@ void gemm_nn(int M, int N, int K, float ALPHA,
         }
     }
     else if(use_withscale_int_round){
-	PUT_IN_REGISTER DTYPE SCALE_NUM = (1 << scale);
-        DTYPE ALPHA_con = (int)(ALPHA * SCALE_NUM);
+	static PUT_IN_REGISTER DTYPE SCALE_NUM = (1 << scale);
+        static PUT_IN_REGISTER DTYPE ALPHA_con = (int)(ALPHA * SCALE_NUM);
+	
         //printf("ALPHA = %d\n", ALPHA_con);
 
 	// M=1 for many cases, there is no need for this
@@ -2137,7 +2148,16 @@ void gemm_nn(int M, int N, int K, float ALPHA,
 
                 //PUT_IN_REGISTER int A_PART = tmp_k_mult; 
 
-                PUT_IN_REGISTER int A_PART = ((ALPHA_con * (int)(A[i * lda + k] * SCALE_NUM)) >> scale);
+                //PUT_IN_REGISTER int A_PART 
+		// = ((ALPHA_con * (int)(A[i * lda + k] * SCALE_NUM)) >> scale);
+
+	        // converting alpha before hand
+                // PUT_IN_REGISTER int A_PART 
+		// 	= ((ALPHA * (DTYPE)(A[i * lda + k] * SCALE_NUM)) >> scale);
+		// Sincw we already know that alpha is always one
+                PUT_IN_REGISTER DTYPE A_PART 
+			= (ALPHA_con * (int)(A[i * lda + k] * SCALE_NUM))
+				>> scale;
 
                 //printf("A_PART num = %d\n", tmp_k_mult);
 
@@ -2158,10 +2178,10 @@ void gemm_nn(int M, int N, int K, float ALPHA,
 		    // debug print to ensure that this code block is executed
 		    // printf("Hello use_withscale_int_round\n");
                     C[i*ldc + j] 
-                        += ( (float)(
-                                     (A_PART * (int)(B[k*ldb + j] * SCALE_NUM)) 
-                                                    >> scale))
-                                                                    / SCALE_NUM;
+			+= ( (float)(
+		     (A_PART * (int)(B[k*ldb + j] * SCALE_NUM)) 
+					    >> scale))
+						    / SCALE_NUM;
                                                                    
 
 

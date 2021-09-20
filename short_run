@@ -1,17 +1,29 @@
 #! /bin/bash
 
-var=fpx
+var=withscale_int_round
+#var=fpx
 run_type=map
 ts=$(date "+%H%M%S.%d%m%Y")
 
 make -j4
 
-#./darknet detector $run_type cfg/coco.data cfg/yolov3-tiny.cfg \
-#	yolov3-tiny.weights 2>&1 data/dog.jpg\
-#	| tee log/arm.$run_type.$var.$ts
+for i in data/eagle.jpg \
+	data/giraffe.jpg data/horses.jpg data/person.jpg\
+	data/scream.jpg; do
 
-./darknet detector $run_type cfg/coco.data cfg/yolov3-tiny.cfg \
-	yolov3-tiny.weights 2>&1 \
-	| tee log/arm.$run_type.$var.$ts
+	#./darknet detector $run_type cfg/coco.data cfg/yolov3-tiny.cfg \
+	#yolov3-tiny.weights $i -save_labels 2>&1 \
+	#| tee log/arm.$run_type.$var.$ts
 
-gprof darknet gmon.out > perf_results/darknet.perf.arm.$var.$run_type.$(date "+%H%M%S.%d%m%Y") 
+	echo $i > coco_testdev
+
+	./darknet detector $run_type cfg/coco.data \
+		cfg/yolov3-tiny.cfg yolov3-tiny.weights 2>&1 \
+		| tee log/arm.$run_type.$var.$ts
+
+done;
+
+
+
+
+#gprof darknet gmon.out > perf_results/darknet.perf.arm.$var.$run_type.$(date "+%H%M%S.%d%m%Y") 

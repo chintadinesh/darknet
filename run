@@ -43,9 +43,11 @@ make -j4;
 if [ $made_changes -eq 1 ]; then
     ts=$(date "+%H%M%S.%d%m%Y")
     if [ "$run_type" = "map" ]; then
-        ./darknet detector $run_type cfg/coco.data cfg/yolov3-tiny.cfg yolov3-tiny.weights 2>&1 | tee log/$run_type.$var.$ts
+        ./darknet detector $run_type cfg/coco.data cfg/yolov3-tiny.cfg \
+		yolov3-tiny.weights 2>&1 | tee log/$run_type.$var.$ts
     elif [ "$run_type" = "test" ]; then 
-        ./darknet detector $run_type cfg/coco.data cfg/yolov3-tiny.cfg yolov3-tiny.weights data/dog.jpg 2>&1 tee log/$run_type.$var.$ts;
+        ./darknet detector $run_type cfg/coco.data cfg/yolov3-tiny.cfg \
+		yolov3-tiny.weights data/dog.jpg 2>&1 tee log/$run_type.$var.$ts;
     else
         echo "***Error run unsuccessful, please select a valid run_type";
     fi
