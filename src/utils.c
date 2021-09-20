@@ -25,6 +25,11 @@
 #pragma warning(disable: 4996)
 #endif
 
+#define NON_RANDOM_NUMS 19
+float non_random_numbers[NON_RANDOM_NUMS] = {
+        -0.9, -0.8, -0.7, -0.6, -0.5, -0.4, -0.3, -0.2,
+    -0.1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1};
+
 void *xmalloc_location(const size_t size, const char * const filename, const char * const funcname, const int line) {
     void *ptr=malloc(size);
     if(!ptr) {
@@ -840,6 +845,9 @@ size_t rand_size_t()
 
 float rand_uniform(float min, float max)
 {
+    //static int i = 0;
+    //return(non_random_numbers[(i++)%NON_RANDOM_NUMS]);
+
     if(max < min){
         float swap = min;
         min = max;

@@ -11,6 +11,26 @@
 
 
 ## Experiments
+* What happens when we convert the numbers to ints even before sending to gemm
+* After enabling openmp, we can notice that most of time is spent in omp
+  allocation, deallocation functions. log =
+  "perf_results/darknet.perf.arm.fpx.map.222848.18092021"
+
+    * I can think of compiling gemm.c seperately and then linking it. Not sure
+      how much effort does that take.
+    * Though it is not explicit, it is likely that openmp's time of 13 ms is
+      still in optimizing our gemm_nn function. Thus, it is not meaningful to
+      compile only gemm.c with openmp. Owing to the lack of time, we make that
+      assumption and go further.
+
+* There is no big difference between c/cpp in terms of performance. Both of them are taking 20 s. Their logs:
+    * C:    perf_results/darknet.perf.withscale_int_round.test.172737.18092021
+    * Cpp:  perf_results/darknet.perf.withscale_int_round.test.165858.18092021
+ 
+* On the board, here are the timing results
+    * 20.94 
+    * 10.49
+    
 * Optimizing gemm
     * We cant really get rid of the initial float multiplication with scale
      and  the subsequent float division with scale as they cut off the
