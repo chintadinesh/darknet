@@ -2112,7 +2112,7 @@ void gemm_nn(int M, int N, int K, int ALPHA,
 
                 //printf("A_PART num = %d\n", tmp_k_mult);
 
-		#pragma omp parallel for
+                #pragma omp parallel for
                 for (j = 0; j < N; ++j) {
                     //DTYPE res =  A_PART * __roundup(B[k*ldb + j] * (1 << scale));
 
@@ -2129,16 +2129,16 @@ void gemm_nn(int M, int N, int K, int ALPHA,
         }
     }
     else if(use_withscale_int_round){
-	static PUT_IN_REGISTER DTYPE SCALE_NUM = (1 << scale);
-        static PUT_IN_REGISTER DTYPE ALPHA_con = (int)(ALPHA * SCALE_NUM);
+      PUT_IN_REGISTER DTYPE SCALE_NUM = (1 << scale);
+      PUT_IN_REGISTER DTYPE ALPHA_con = (int)(ALPHA * SCALE_NUM);
 	
         //printf("ALPHA = %d\n", ALPHA_con);
 
-	// M=1 for many cases, there is no need for this
+        // M=1 for many cases, there is no need for this
         //#pragma omp parallel for
         for (i = 0; i < M; ++i) {
 
-	    // experimenting without the outer pragma
+            // experimenting without the outer pragma
             #pragma omp parallel for
             for (k = 0; k < K; ++k) {
                 //tmp_k_mult = ((ALPHA_con * round(A[i * lda + k] * (1 << scale))) >> scale);
@@ -2149,19 +2149,19 @@ void gemm_nn(int M, int N, int K, int ALPHA,
                 //PUT_IN_REGISTER int A_PART = tmp_k_mult; 
 
                 //PUT_IN_REGISTER int A_PART 
-		// = ((ALPHA_con * (int)(A[i * lda + k] * SCALE_NUM)) >> scale);
+                // = ((ALPHA_con * (int)(A[i * lda + k] * SCALE_NUM)) >> scale);
 
-	        // converting alpha before hand
+                // converting alpha before hand
                 // PUT_IN_REGISTER int A_PART 
-		// 	= ((ALPHA * (DTYPE)(A[i * lda + k] * SCALE_NUM)) >> scale);
-		// Sincw we already know that alpha is always one
+                // 	= ((ALPHA * (DTYPE)(A[i * lda + k] * SCALE_NUM)) >> scale);
+                // Sincw we already know that alpha is always one
                 PUT_IN_REGISTER DTYPE A_PART 
-			= (ALPHA_con * (int)(A[i * lda + k] * SCALE_NUM))
-				>> scale;
+                    = (ALPHA_con * (int)(A[i * lda + k] * SCALE_NUM))
+                          >> scale;
 
                 //printf("A_PART num = %d\n", tmp_k_mult);
 
-		#pragma omp parallel for
+		            #pragma omp parallel for
                 for (j = 0; j < N; ++j) {
                     //DTYPE res =  A_PART * round(B[k*ldb + j] * (1 << scale));
 
@@ -2175,13 +2175,13 @@ void gemm_nn(int M, int N, int K, int ALPHA,
                     // experiment with not converting back to float but just
                     // bit shifting
 
-		    // debug print to ensure that this code block is executed
-		    // printf("Hello use_withscale_int_round\n");
+                    // debug print to ensure that this code block is executed
+                    // printf("Hello use_withscale_int_round\n");
                     C[i*ldc + j] 
-			+= ( (float)(
-		     (A_PART * (int)(B[k*ldb + j] * SCALE_NUM)) 
-					    >> scale))
-						    / SCALE_NUM;
+                        += ( (float)(
+                          (A_PART * (int)(B[k*ldb + j] * SCALE_NUM)) 
+                                >> scale))
+                                  / SCALE_NUM;
                                                                    
 
 
@@ -2224,7 +2224,7 @@ void gemm_nn(int M, int N, int K, int ALPHA,
 
                 //printf("A_PART num = %d\n", tmp_k_mult);
 
-		#pragma omp parallel for
+                #pragma omp parallel for
                 for (j = 0; j < N; ++j) {
                     //DTYPE res =  A_PART * round(B[k*ldb + j] * (1 << scale));
 
