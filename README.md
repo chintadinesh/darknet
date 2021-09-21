@@ -880,8 +880,10 @@ We note the following issues with our fixed point implementation:
       we got the following results for different values of scaling:
       * logfile = 'log/snr.231906.17092021'
       * results
-          |scale    | snr  |
-          |---------|-------- |
+
+	  | scale     snr   	|
+	  | ----------- | ----------- |
+	  | 10 	    |  0.244   |
           | 8       | 18.262178|
           | 9       | 25.754839|
           | 10      | 38.904385|
