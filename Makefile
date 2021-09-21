@@ -14,7 +14,7 @@ ZED_CAMERA_v2_8=0
 # set ZED_CAMERA=1 to enable ZED SDK 3.0 and above
 # set ZED_CAMERA_v2_8=1 to enable ZED SDK 2.X
 
-USE_CPP=1
+USE_CPP=0
 USE_PROFILING=1
 DEBUG=0
 

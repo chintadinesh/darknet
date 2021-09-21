@@ -11,6 +11,7 @@
 #include <omp.h>
 
 extern int scale;
+#define ALL_FIXED
 
 #ifdef AI2
 #include "xnor_layer.h"
@@ -1396,7 +1397,23 @@ void forward_convolutional_layer(convolutional_layer l, network_state state)
 
                 }
 
+#ifdef ALL_FIXED
+                //int* d = (int *) malloc(sizeof(int)*m*n);
                 gemm(0, 0, m, n, k, 1, a, k, b, n, 1, c, n);
+
+                //loop through c and scale back the outpu tmatrix
+
+                int div = (1 << scale);
+                for(int m_it =0; m_it < m; m_it++){
+                  for(int n_it=0; n_it < n; n_it++) {
+                    //c[m_it*n + n_it] =((float)c[m_it*n + n_it])/div;
+                    c[m_it*n + n_it] /=div;
+                  }
+                }
+#else 
+                gemm(0, 0, m, n, k, 1, a, k, b, n, 1, c, n);
+#endif
+
                 //gemm(0, 0, m, n, k, (1<<scale), a, k, b, n, 1, c, n);
                 // bit-count to float
             //}
