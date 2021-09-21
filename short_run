@@ -7,9 +7,7 @@ ts=$(date "+%H%M%S.%d%m%Y")
 
 make -j4
 
-for i in data/eagle.jpg \
-	data/giraffe.jpg data/horses.jpg data/person.jpg\
-	data/scream.jpg; do
+for i in data/dog.jpg; do
 
 	#./darknet detector $run_type cfg/coco.data cfg/yolov3-tiny.cfg \
 	#yolov3-tiny.weights $i -save_labels 2>&1 \
@@ -26,4 +24,4 @@ done;
 
 
 
-#gprof darknet gmon.out > perf_results/darknet.perf.arm.$var.$run_type.$(date "+%H%M%S.%d%m%Y") 
+gprof darknet gmon.out > perf_results/darknet.perf.arm.$var.$run_type.$(date "+%H%M%S.%d%m%Y") 
