@@ -2,12 +2,16 @@
 
 var=withscale_int_round
 #var=fpx
-run_type=map
+run_type=test
 ts=$(date "+%H%M%S.%d%m%Y")
 
 make -j4
 
-for i in data/dog.jpg; do
+<<cmt
+for i in data/eagle.jpg \
+	data/giraffe.jpg data/horses.jpg data/person.jpg\
+	data/scream.jpg; do
+>>>>>>> e809cf8b4064cd07e1b4965c1c2520a743fecda2
 
 	#./darknet detector $run_type cfg/coco.data cfg/yolov3-tiny.cfg \
 	#yolov3-tiny.weights $i -save_labels 2>&1 \
@@ -20,8 +24,11 @@ for i in data/dog.jpg; do
 		| tee log/arm.$run_type.$var.$ts
 
 done;
+cmt
 
-
+./darknet detector $run_type cfg/coco.data \
+  cfg/yolov3-tiny.cfg yolov3-tiny.weights data/dog.jpg 2>&1 \
+  | tee log/arm.$run_type.$var.$ts
 
 
 gprof darknet gmon.out > perf_results/darknet.perf.arm.$var.$run_type.$(date "+%H%M%S.%d%m%Y") 
