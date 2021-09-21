@@ -1,258 +1,845 @@
-# Yolo v4, v3 and v2 for Windows and Linux
-
-## EE382M soc notes
+# EE382M SOC report <!--[github link](https://github.com/CHINTADINESH/darknet.git) -->
 - [Lab1 setup link](http://users.ece.utexas.edu/~gerstl/ece382m_f21/labs/lab1.htm)
-### Steps
-1. Connect the board and turn it on. Make sure the corresponding device appears in the /dev directory
-2. use screen to connect to the boards terminal
+
+## Miscellaneous points while lab setup.
+1. We used screen to connect to the board instead of Minicom. Reason: not able 
     ```bash
     sudo screen -L /dev/ttyUSB1 115200
-3. If you are not working on the baord, c code might be throwing errors. Please use g++ while compiling. Also, set profiling appropriately. 
-4. 
+    ```
+2. Login credentials:
+   i. Username: ultra96
+   ii. Password: ultra96
 
-## Experiments
-* What happens when we convert the numbers to ints even before sending to gemm
-* After enabling openmp, we can notice that most of time is spent in omp
-  allocation, deallocation functions. log =
-  "perf_results/darknet.perf.arm.fpx.map.222848.18092021"
+3. For a graceful shutdown, please use the fillowing command
+    ```bash
+    sudo halt
+    ```
 
-    * I can think of compiling gemm.c seperately and then linking it. Not sure
-      how much effort does that take.
-    * Though it is not explicit, it is likely that openmp's time of 13 ms is
-      still in optimizing our gemm_nn function. Thus, it is not meaningful to
-      compile only gemm.c with openmp. Owing to the lack of time, we make that
-      assumption and go further.
-
-* There is no big difference between c/cpp in terms of performance. Both of them are taking 20 s. Their logs:
-    * C:    perf_results/darknet.perf.withscale_int_round.test.172737.18092021
-    * Cpp:  perf_results/darknet.perf.withscale_int_round.test.165858.18092021
- 
-* On the board, here are the timing results
-    * 20.94 
-    * 10.49
-    
-* Optimizing gemm
-    * We cant really get rid of the initial float multiplication with scale
-     and  the subsequent float division with scale as they cut off the
-     essential information
-
-        ```c
-        mAP drops to 25% when this method is used
-        C[i*ldc + j] 
-            += (A_PART     *   (int)(B[k*ldb + j] * (1 << scale))) >> (2*scale);
-        */                                              
-        ```
-    * With int type rounding time taken by gemm is 1.97 sec. 
-        log = perf_results/darknet.perf.withscale_int_round.test.141337.18092021
-    * floating point gemm takes, 1.95 seconds 
-* Does scale matter?
-    * The difficulty in answering this is to measure the difference in
-      performance.
-    * Unfortunately, for all other scales, the mAP is too low. Also, FNs are
-      high for small scale.
-
-* Let us start with scale = 13:
-    * We don't actually need our custom \__roundup function. I am directly
-      type casting to int types.
-    * mAP close to 100%. log = "log/map.withscale_cnative_round.133032.18092021" 
-    * Time is around 2 seconds. Now, only gemm_nn is the bottleneck.
-        log = "log/map.withscale_cnative_round.133032.18092021"
-
-* For scale = 13, 
-    * the mAP came to be 100%. log = "log/map.fx.124030.18092021"
-    * Time taken = 13s; log =  "perf_results/darknet.perf.fx.124248.18092021"
-
-* After analysis of the fixed point output matrix, I noted that scale is not
- being set properly. Running SNR test different values of scale on the fixed
- point output matrix, we get the following SNR results
-    * table
-
-
-        |scale  | snr |
-        |---    |-------------|
-        |1      | 25.368002|
-        |2      | 28.792755|
-        |3      | 43.377327|
-        |4      |    54.751232|
-        |5      |    67.387032|
-        |6      |    77.842567|
-        |7      |    94.654114|
-        |8      |    102.631355|
-        |9      |    117.446495|
-        |10     |    130.757172|
-        |11     |    146.535904|
-        |12     |    160.423248|
-        |13     |    174.414871|
-        |14     |    74.169121|
-        |15     |    1.698584|
-        |16     |    0.076399|
-        |17     |    0.178493|
-        |18     |    -0.167274|
-        |19     |    0.012987|
-        |20     |    0.009955|
-        |21     |    -0.004165|
-
-        
-
-* If the precision is not lost, we can aswell represent the data in char, 
-    * as we know the max and min values to be: max = 76.966393, min = -17.589060 
-    * I think it is more important to have a look at the SNR values of the
-     calculations instead of mAP to decide on the scale.
-    *  
-* With c's native round function:
-    * gemm_nn still shows the same time. However, time taken round disappers.
-    * Total time ~= 10 sec. log = "perf_results/darknet.perf.cnative_round.011654.18092021"
-    * mAP:  mean average precision (mAP) = 0.037500, or 3.75 % (2 classes)
-    * log = "log/map.cnative_round.011634.18092021"
-
-* gprof results for scale = 23 is 
-    * time = 17 seconds. log = 'perf_results/darknet.perf.scale_23.234744.17092021'
-    * for floating, time = 1.12 seconds. log = 'perf_results/darknet.perf.fpx.000556.18092021'
-* We fix scale = 23 for performance analysis.
-* SNR: for the testbench provided at * [tb](http://users.ece.utexas.edu/~gerstl/ece382m_f21/labs/lab1/testbench.m),\ 
-    we got the following results for different values of scaling:
-    * logfile = 'log/snr.231906.17092021'
-    * results
-        |scale    | snr      |
-        |---------|-------- |
-        | 8       | 18.262178|
-        | 9       | 25.754839|
-        | 10      | 38.904385|
-        | 11      | 50.432785|
-        | 12      | 64.333061|
-        | 13      | 78.565445|
-        | 14      | 90.450508|
-        | 15      | 105.698715|
-        | 16      | -4.251273|
-        | 17      | -0.958876|
-        | 18      | -0.754522|
-        | 19      | 0.000042|
-
-* Rounding the floats to int has given a performance hit.
-    a. Without rounding, it takes a total of 1 sec in gemm_nn
-* There is not much in difference by changing the order of for loops. Maybe 
-    because the row and column sizes are big enough 
-* Profiling the input data ranges.  
-    * Monitoring through native int and float types is not working.  
-    * Trying with float type: 
-        * Discovered max = 76.966393, min = -17.589060
-* Now let us test the mAp. We were given with the following info about how to do it
+4. Apply the patch for mAP calculation as shown below.
     ```bash
     wget http://www.ece.utexas.edu/~gerstl/ece382m_f21/labs/lab1/darknet-map.patch
     patch -p0 -b < darknet-map.patch
     make clean
     make
     ```
-* Results of mAp:
-    * With no modifications, here are the results: as expected, we get 100% mAP.
-        ```bash
-        for conf_thresh = 0.25, precision = 0.67, recall = 1.00, F1-score = 0.80
-        for conf_thresh = 0.25, TP = 4, FP = 2, FN = 0, average IoU = 66.62 %
 
-        IoU threshold = 50 %, used Area-Under-Curve for each unique Recall
+## Experiments
+### Where we did our experiments:
+* We did experiments on two machines:
+    * For functional testing: Intel CPU
+      <details><summary>lshw output</summary>
+      <p>
+      ub18
+          description: Notebook
+          product: HP Pavilion Notebook (M2W75PA#ACJ)
+          vendor: Hewlett-Packard
+          version: Type1ProductConfigId
+          serial: 5CD5263JFN
+          width: 64 bits
+          capabilities: smbios-2.8 dmi-2.8 smp vsyscall32
+          configuration: administrator_password=disabled boot=normal chassis=notebook family=103C_5335KV G=N L=CON B=HP S=PAV X=Null sku=M2W75PA#ACJ uuid=35434435-3236-334A-464E-3CA82AB08ED6
+        *-core
+            description: Motherboard
+            product: 8096
+            vendor: Hewlett-Packard
+            physical id: 0
+            version: 89.11
+            serial: PFDXH018J8U572
+            slot: Type2 - Board Chassis Location
+          *-firmware
+          description: BIOS
+          vendor: Insyde
+          physical id: 0
+          version: F.03
+          date: 03/31/2015
+          size: 128KiB
+          capacity: 6MiB
+          capabilities: pci upgrade shadowing cdboot bootselect edd int13floppynec int13floppytoshiba int13floppy360 int13floppy1200 int13floppy720 int13floppy2880 int9keyboard int10video acpi usb biosbootspecification uefi
+          *-cpu
+          description: CPU
+          product: Intel(R) Core(TM) i5-5200U CPU @ 2.20GHz
+          vendor: Intel Corp.
+          physical id: 4
+          bus info: cpu@0
+          version: Intel(R) Core(TM) i5-5200U CPU @ 2.20GHz
+          serial: To Be Filled By O.E.M.
+          slot: U3E1
+          size: 947MHz
+          capacity: 2700MHz
+          width: 64 bits
+          clock: 100MHz
+          capabilities: lm fpu fpu_exception wp vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp x86-64 constant_tsc arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf pni pclmulqdq dtes64 monitor ds_cpl vmx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch cpuid_fault epb invpcid_single pti ssbd ibrs ibpb stibp tpr_shadow vnmi flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap intel_pt xsaveopt dtherm ida arat pln pts md_clear flush_l1d cpufreq
+          configuration: cores=2 enabledcores=2 threads=4
+        *-cache:0
+            description: L1 cache
+            physical id: 6
+            slot: L1 Cache
+            size: 32KiB
+            capacity: 32KiB
+            capabilities: synchronous internal write-back instruction
+            configuration: level=1
+        *-cache:1
+            description: L2 cache
+            physical id: 7
+            slot: L2 Cache
+            size: 256KiB
+            capacity: 256KiB
+            capabilities: synchronous internal write-back unified
+            configuration: level=2
+        *-cache:2
+            description: L3 cache
+            physical id: 8
+            slot: L3 Cache
+            size: 3MiB
+            capacity: 3MiB
+            capabilities: synchronous internal write-back unified
+            configuration: level=3
+          *-cache
+          description: L1 cache
+          physical id: 5
+          slot: L1 Cache
+          size: 32KiB
+          capacity: 32KiB
+          capabilities: synchronous internal write-back data
+          configuration: level=1
+          *-memory
+          description: System Memory
+          physical id: 16
+          slot: System board or motherboard
+          size: 8GiB
+        *-bank:0
+            description: SODIMM DDR3 Synchronous 1600 MHz (0.6 ns)
+            product: M471B1G73QH0-YK0
+            vendor: Samsung
+            physical id: 0
+            serial: 18671515
+            slot: Bottom-Slot 1(left)
+            size: 8GiB
+            width: 64 bits
+            clock: 1600MHz (0.6ns)
+        *-bank:1
+            description: DIMM [empty]
+            physical id: 1
+            slot: Bottom-Slot 2(right)
+          *-pci
+          description: Host bridge
+          product: Broadwell-U Host Bridge -OPI
+          vendor: Intel Corporation
+          physical id: 100
+          bus info: pci@0000:00:00.0
+          version: 09
+          width: 32 bits
+          clock: 33MHz
+          configuration: driver=bdw_uncore
+          resources: irq:0
+        *-display
+            description: VGA compatible controller
+            product: HD Graphics 5500
+            vendor: Intel Corporation
+            physical id: 2
+            bus info: pci@0000:00:02.0
+            version: 09
+            width: 64 bits
+            clock: 33MHz
+            capabilities: msi pm vga_controller bus_master cap_list rom
+            configuration: driver=i915 latency=0
+            resources: irq:52 memory:c3000000-c3ffffff memory:d0000000-dfffffff ioport:7000(size=64) memory:c0000-dffff
+        *-multimedia:0
+            description: Audio device
+            product: Broadwell-U Audio Controller
+            vendor: Intel Corporation
+            physical id: 3
+            bus info: pci@0000:00:03.0
+            version: 09
+            width: 64 bits
+            clock: 33MHz
+            capabilities: pm msi pciexpress bus_master cap_list
+            configuration: driver=snd_hda_intel latency=0
+            resources: irq:55 memory:c6218000-c621bfff
+        *-generic
+            description: Signal processing controller
+            product: Broadwell-U Processor Thermal Subsystem
+            vendor: Intel Corporation
+            physical id: 4
+            bus info: pci@0000:00:04.0
+            version: 09
+            width: 64 bits
+            clock: 33MHz
+            capabilities: msi pm bus_master cap_list
+            configuration: driver=proc_thermal latency=0
+            resources: irq:16 memory:c6210000-c6217fff
+        *-usb
+            description: USB controller
+            product: Wildcat Point-LP USB xHCI Controller
+            vendor: Intel Corporation
+            physical id: 14
+            bus info: pci@0000:00:14.0
+            version: 03
+            width: 64 bits
+            clock: 33MHz
+            capabilities: pm msi xhci bus_master cap_list
+            configuration: driver=xhci_hcd latency=0
+            resources: irq:47 memory:c6200000-c620ffff
+          *-usbhost:0
+          product: xHCI Host Controller
+          vendor: Linux 5.4.0-81-generic xhci-hcd
+          physical id: 0
+          bus info: usb@1
+          logical name: usb1
+          version: 5.04
+          capabilities: usb-2.00
+          configuration: driver=hub slots=11 speed=480Mbit/s
+              *-usb:0
+            description: Generic USB device
+            product: SDM660-MTP _SN:269DBF10
+            vendor: Xiaomi
+            physical id: 1
+            bus info: usb@1:1
+            version: 4.04
+            serial: d9650f6
+            capabilities: usb-2.00
+            configuration: driver=usbfs maxpower=500mA speed=480Mbit/s
+              *-usb:1
+            description: Generic USB device
+            product: JTAG+Serial
+            vendor: Xilinx
+            physical id: 2
+            bus info: usb@1:2
+            version: 7.00
+            serial: 1234-oj1
+            capabilities: usb-2.00
+            configuration: driver=ftdi_sio maxpower=100mA speed=480Mbit/s
+              *-usb:2
+            description: Video
+            product: HP Truevision HD
+            vendor: Generic
+            physical id: 3
+            bus info: usb@1:3
+            version: 19.16
+            serial: 200901010001
+            capabilities: usb-2.00
+            configuration: driver=uvcvideo maxpower=500mA speed=480Mbit/s
+              *-usb:3
+            description: Keyboard
+            product: 2.4G Keyboard Mouse
+            vendor: MOSART Semi.
+            physical id: 6
+            bus info: usb@1:6
+            version: 3.26
+            capabilities: usb-1.10
+            configuration: driver=usbhid maxpower=100mA speed=12Mbit/s
+          *-usbhost:1
+          product: xHCI Host Controller
+          vendor: Linux 5.4.0-81-generic xhci-hcd
+          physical id: 1
+          bus info: usb@2
+          logical name: usb2
+          version: 5.04
+          capabilities: usb-3.00
+          configuration: driver=hub slots=4 speed=5000Mbit/s
+        *-communication
+            description: Communication controller
+            product: Wildcat Point-LP MEI Controller #1
+            vendor: Intel Corporation
+            physical id: 16
+            bus info: pci@0000:00:16.0
+            version: 03
+            width: 64 bits
+            clock: 33MHz
+            capabilities: pm msi bus_master cap_list
+            configuration: driver=mei_me latency=0
+            resources: irq:51 memory:c6222000-c622201f
+        *-multimedia:1
+            description: Audio device
+            product: Wildcat Point-LP High Definition Audio Controller
+            vendor: Intel Corporation
+            physical id: 1b
+            bus info: pci@0000:00:1b.0
+            version: 03
+            width: 64 bits
+            clock: 33MHz
+            capabilities: pm msi bus_master cap_list
+            configuration: driver=snd_hda_intel latency=64
+            resources: irq:54 memory:c621c000-c621ffff
+        *-pci:0
+            description: PCI bridge
+            product: Wildcat Point-LP PCI Express Root Port #1
+            vendor: Intel Corporation
+            physical id: 1c
+            bus info: pci@0000:00:1c.0
+            version: e3
+            width: 32 bits
+            clock: 33MHz
+            capabilities: pci pciexpress msi pm normal_decode bus_master cap_list
+            configuration: driver=pcieport
+            resources: irq:42
+        *-pci:1
+            description: PCI bridge
+            product: Wildcat Point-LP PCI Express Root Port #2
+            vendor: Intel Corporation
+            physical id: 1c.1
+            bus info: pci@0000:00:1c.1
+            version: e3
+            width: 32 bits
+            clock: 33MHz
+            capabilities: pci pciexpress msi pm normal_decode bus_master cap_list
+            configuration: driver=pcieport
+            resources: irq:43 ioport:6000(size=4096) memory:c5000000-c5ffffff ioport:c2000000(size=16777216)
+          *-generic
+          description: Unassigned class
+          product: RTS522A PCI Express Card Reader
+          vendor: Realtek Semiconductor Co., Ltd.
+          physical id: 0
+          bus info: pci@0000:02:00.0
+          version: 01
+          width: 32 bits
+          clock: 33MHz
+          capabilities: pm msi pciexpress bus_master cap_list
+          configuration: driver=rtsx_pci latency=0
+          resources: irq:48 memory:c5000000-c5000fff
+        *-pci:2
+            description: PCI bridge
+            product: Wildcat Point-LP PCI Express Root Port #3
+            vendor: Intel Corporation
+            physical id: 1c.2
+            bus info: pci@0000:00:1c.2
+            version: e3
+            width: 32 bits
+            clock: 33MHz
+            capabilities: pci pciexpress msi pm normal_decode bus_master cap_list
+            configuration: driver=pcieport
+            resources: irq:44 ioport:5000(size=4096) memory:c6100000-c61fffff
+          *-network DISABLED
+          description: Wireless interface
+          product: RTL8723BE PCIe Wireless Network Adapter
+          vendor: Realtek Semiconductor Co., Ltd.
+          physical id: 0
+          bus info: pci@0000:08:00.0
+          logical name: wlo1
+          version: 00
+          serial: 70:77:81:5c:c3:ab
+          width: 64 bits
+          clock: 33MHz
+          capabilities: pm msi pciexpress bus_master cap_list ethernet physical wireless
+          configuration: broadcast=yes driver=rtl8723be driverversion=5.4.0-81-generic firmware=N/A latency=0 link=no multicast=yes wireless=IEEE 802.11
+          resources: irq:18 ioport:5000(size=256) memory:c6100000-c6103fff
+        *-pci:3
+            description: PCI bridge
+            product: Wildcat Point-LP PCI Express Root Port #4
+            vendor: Intel Corporation
+            physical id: 1c.3
+            bus info: pci@0000:00:1c.3
+            version: e3
+            width: 32 bits
+            clock: 33MHz
+            capabilities: pci pciexpress msi pm normal_decode bus_master cap_list
+            configuration: driver=pcieport
+            resources: irq:45 ioport:4000(size=4096) memory:c6000000-c60fffff
+          *-network
+          description: Ethernet interface
+          product: RTL810xE PCI Express Fast Ethernet controller
+          vendor: Realtek Semiconductor Co., Ltd.
+          physical id: 0
+          bus info: pci@0000:09:00.0
+          logical name: eno1
+          version: 0a
+          serial: 3c:a8:2a:b0:8e:d6
+          capacity: 100Mbit/s
+          width: 64 bits
+          clock: 33MHz
+          capabilities: pm msi pciexpress msix bus_master cap_list ethernet physical tp mii 10bt 10bt-fd 100bt 100bt-fd autonegotiation
+          configuration: autonegotiation=on broadcast=yes driver=r8169 firmware=rtl8107e-2_0.0.2 02/26/15 latency=0 link=no multicast=yes port=MII
+          resources: irq:19 ioport:4000(size=256) memory:c6004000-c6004fff memory:c6000000-c6003fff
+        *-pci:4
+            description: PCI bridge
+            product: Wildcat Point-LP PCI Express Root Port #5
+            vendor: Intel Corporation
+            physical id: 1c.4
+            bus info: pci@0000:00:1c.4
+            version: e3
+            width: 32 bits
+            clock: 33MHz
+            capabilities: pci pciexpress msi pm normal_decode bus_master cap_list
+            configuration: driver=pcieport
+            resources: irq:46 ioport:3000(size=4096) memory:c4000000-c4ffffff ioport:b0000000(size=301989888)
+          *-display
+          description: 3D controller
+          product: GM108M [GeForce 940M]
+          vendor: NVIDIA Corporation
+          physical id: 0
+          bus info: pci@0000:0a:00.0
+          version: a2
+          width: 64 bits
+          clock: 33MHz
+          capabilities: pm msi pciexpress bus_master cap_list
+          configuration: driver=nouveau latency=0
+          resources: irq:53 memory:c4000000-c4ffffff memory:b0000000-bfffffff memory:c0000000-c1ffffff ioport:3000(size=128)
+        *-isa
+            description: ISA bridge
+            product: Wildcat Point-LP LPC Controller
+            vendor: Intel Corporation
+            physical id: 1f
+            bus info: pci@0000:00:1f.0
+            version: 03
+            width: 32 bits
+            clock: 33MHz
+            capabilities: isa bus_master cap_list
+            configuration: driver=lpc_ich latency=0
+            resources: irq:0
+        *-sata
+            description: SATA controller
+            product: Wildcat Point-LP SATA Controller [AHCI Mode]
+            vendor: Intel Corporation
+            physical id: 1f.2
+            bus info: pci@0000:00:1f.2
+            version: 03
+            width: 32 bits
+            clock: 66MHz
+            capabilities: sata msi pm ahci_1.0 bus_master cap_list
+            configuration: driver=ahci latency=0
+            resources: irq:49 ioport:7088(size=8) ioport:7094(size=4) ioport:7080(size=8) ioport:7090(size=4) ioport:7060(size=32) memory:c6220000-c62207ff
+        *-serial
+            description: SMBus
+            product: Wildcat Point-LP SMBus Controller
+            vendor: Intel Corporation
+            physical id: 1f.3
+            bus info: pci@0000:00:1f.3
+            version: 03
+            width: 64 bits
+            clock: 33MHz
+            configuration: driver=i801_smbus latency=0
+            resources: irq:18 memory:c6221000-c62210ff ioport:7040(size=32)
+          *-pnp00:00
+          product: PnP device PNP0c02
+          physical id: 1
+          capabilities: pnp
+          configuration: driver=system
+          *-pnp00:01
+          product: PnP device PNP0b00
+          physical id: 2
+          capabilities: pnp
+          configuration: driver=rtc_cmos
+          *-pnp00:02
+          product: PnP device HPQ8001
+          vendor: HP
+          physical id: 3
+          capabilities: pnp
+          configuration: driver=i8042 kbd
+          *-pnp00:03
+          product: PnP device SYN1ef2
+          vendor: Synaptics Inc
+          physical id: 6
+          capabilities: pnp
+          configuration: driver=i8042 aux
+          *-pnp00:04
+          product: PnP device PNP0c02
+          physical id: 7
+          capabilities: pnp
+          configuration: driver=system
+          *-scsi:0
+          physical id: 8
+          logical name: scsi0
+          capabilities: emulated
+        *-disk
+            description: ATA Disk
+            product: HGST HTS541010A9
+            physical id: 0.0.0
+            bus info: scsi@0:0.0.0
+            logical name: /dev/sda
+            version: A710
+            serial: JA1009C03HU9GP
+            size: 931GiB (1TB)
+            capabilities: gpt-1.00 partitioned partitioned:gpt
+            configuration: ansiversion=5 guid=812de78b-0013-494e-b929-0eddfa27d129 logicalsectorsize=512 sectorsize=4096
+          *-volume:0
+          description: Windows NTFS volume
+          vendor: Windows
+          physical id: 1
+          bus info: scsi@0:0.0.0,1
+          logical name: /dev/sda1
+          version: 3.1
+          serial: 9079-7222
+          size: 648MiB
+          capacity: 649MiB
+          capabilities: boot precious ntfs initialized
+          configuration: clustersize=4096 created=2015-06-25 19:24:32 filesystem=ntfs label=WINRE name=Basic data partition state=clean
+          *-volume:1
+          description: Windows FAT volume
+          vendor: MSDOS5.0
+          physical id: 2
+          bus info: scsi@0:0.0.0,2
+          logical name: /dev/sda2
+          logical name: /boot/efi
+          version: FAT32
+          serial: 0e47-954b
+          size: 245MiB
+          capacity: 259MiB
+          capabilities: boot fat initialized
+          configuration: FATs=2 filesystem=fat mount.fstype=vfat mount.options=rw,relatime,fmask=0077,dmask=0077,codepage=437,iocharset=iso8859-1,shortname=mixed,errors=remount-ro name=EFI system partition state=mounted
+          *-volume:2
+          description: reserved partition
+          vendor: Windows
+          physical id: 3
+          bus info: scsi@0:0.0.0,3
+          logical name: /dev/sda3
+          serial: c78bde29-a665-4db7-b603-8ef4b0b6e8a6
+          capacity: 127MiB
+          capabilities: nofs
+          configuration: name=Microsoft reserved partition
+          *-volume:3
+          description: Windows NTFS volume
+          vendor: Windows
+          physical id: 4
+          bus info: scsi@0:0.0.0,4
+          logical name: /dev/sda4
+          version: 3.1
+          serial: 06633286-f5b1-644c-b739-f15bb9023416
+          size: 416GiB
+          capacity: 416GiB
+          capabilities: ntfs initialized
+          configuration: clustersize=4096 created=2015-04-30 01:01:09 filesystem=ntfs label=Windows name=Basic data partition state=clean
+          *-volume:4
+          description: EXT4 volume
+          vendor: Linux
+          physical id: 5
+          bus info: scsi@0:0.0.0,5
+          logical name: /dev/sda5
+          logical name: /
+          version: 1.0
+          serial: ed910030-eeab-4d4a-b7e1-41d4f0462630
+          size: 97GiB
+          capabilities: journaled extended_attributes large_files huge_files dir_nlink recover 64bit extents ext4 ext2 initialized
+          configuration: created=2018-12-28 05:09:08 filesystem=ext4 lastmountpoint=/ modified=2021-09-14 07:43:26 mount.fstype=ext4 mount.options=rw,relatime,errors=remount-ro mounted=2021-09-14 07:43:33 state=mounted
+          *-volume:5
+          description: EXT4 volume
+          vendor: Linux
+          physical id: 6
+          bus info: scsi@0:0.0.0,6
+          logical name: /dev/sda6
+          logical name: /mnt/UB16root
+          logical name: /home
+          version: 1.0
+          serial: 19995ab2-1b81-496e-aba4-8db3f814a4e2
+          size: 182GiB
+          capabilities: journaled extended_attributes large_files huge_files dir_nlink recover extents ext4 ext2 initialized
+          configuration: created=2015-12-27 09:36:17 filesystem=ext4 lastmountpoint=/home modified=2021-09-14 07:44:00 mount.fstype=ext4 mount.options=rw,relatime mounted=2021-09-14 07:44:00 state=mounted
+          *-volume:6
+          description: Linux swap volume
+          vendor: Linux
+          physical id: 7
+          bus info: scsi@0:0.0.0,7
+          logical name: /dev/sda7
+          version: 1
+          serial: 0005e636-1fcd-41a9-b26f-a3add8b27e5c
+          size: 8112MiB
+          capacity: 8113MiB
+          capabilities: nofs swap initialized
+          configuration: filesystem=swap pagesize=4095
+          *-volume:7
+          description: Windows NTFS volume
+          vendor: Windows
+          physical id: 8
+          bus info: scsi@0:0.0.0,8
+          logical name: /dev/sda8
+          version: 3.1
+          serial: 9a4f-7c6a
+          size: 807MiB
+          capacity: 828MiB
+          capabilities: boot precious ntfs initialized
+          configuration: clustersize=4096 created=2015-08-29 11:32:34 filesystem=ntfs state=clean
+          *-volume:8
+          description: Windows NTFS volume
+          vendor: Windows
+          physical id: 9
+          bus info: scsi@0:0.0.0,9
+          logical name: /dev/sda9
+          version: 3.1
+          serial: 32ae1e8c-3f6c-704d-8626-abd95094444a
+          size: 27GiB
+          capacity: 27GiB
+          capabilities: precious ntfs initialized
+          configuration: clustersize=4096 created=2015-06-25 19:42:55 filesystem=ntfs label=RECOVERY name=Basic data partition state=clean
+          *-volume:9
+          description: EXT4 volume
+          vendor: Linux
+          physical id: a
+          bus info: scsi@0:0.0.0,10
+          logical name: /dev/sda10
+          version: 1.0
+          serial: e0a914f2-faea-4300-bfb0-ff3e050fa0eb
+          size: 5MiB
+          capabilities: journaled extended_attributes large_files huge_files dir_nlink recover extents ext4 ext2 initialized
+          configuration: created=2018-05-21 01:18:05 filesystem=ext4 modified=2021-07-11 01:00:41 mounted=2021-07-11 01:00:41 state=clean
+          *-volume:10
+          description: Windows NTFS volume
+          physical id: b
+          bus info: scsi@0:0.0.0,11
+          logical name: /dev/sda11
+          version: 3.1
+          serial: 58751de6-3651-ab47-9914-e8e52580f6a7
+          size: 197GiB
+          capacity: 197GiB
+          capabilities: ntfs initialized
+          configuration: clustersize=4096 created=2015-12-31 13:20:27 filesystem=ntfs label=ADMINISTRATION state=dirty
+          *-scsi:1
+          physical id: 9
+          logical name: scsi1
+          capabilities: emulated
+        *-cdrom
+            description: DVD-RAM writer
+            product: DVDRW  UJ8G2A
+            vendor: hp
+            physical id: 0.0.0
+            bus info: scsi@1:0.0.0
+            logical name: /dev/cdrom
+            logical name: /dev/cdrw
+            logical name: /dev/dvd
+            logical name: /dev/dvdrw
+            logical name: /dev/sr0
+            version: SGM1
+            capabilities: removable audio cd-r cd-rw dvd dvd-r dvd-ram
+            configuration: ansiversion=5 status=nodisc
+        *-battery
+            product: KI04041
+            vendor: 131-24-72
+            physical id: 1
+            version: ManufDate
+            serial: DummySerialNumber
+            slot: Primary
+            capacity: 32560mWh
+            configuration: voltage=14.8V
+        *-power UNCLAIMED
+            description: OEM Define 1
+            product: OEM Define 5
+            vendor: OEM Define 2
+            physical id: 2
+            version: OEM Define 6
+            serial: OEM Define 3
+            capacity: 75mWh
+        *-network DISABLED
+            description: Ethernet interface
+            physical id: 3
+            logical name: virbr0-nic
+            serial: 52:54:00:05:e4:fe
+            size: 10Mbit/s
+            capabilities: ethernet physical
+            configuration: autonegotiation=off broadcast=yes driver=tun driverversion=1.6 duplex=full link=no multicast=yes port=twisted pair speed=10Mbit/s
+            </p>
+            </details>
 
-        mean average precision (mAP) = 1.000000, or 100.00 % (4 classes)
-        Total Detection Time: 1 Seconds
-        ```
-    * With the given roundup, here are the results
-        <details><summary>Results</summary>
-        <p>
-        ```bash
-        detections_count = 0, unique_truth_count = 4
-        class_id = 0, name = person, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 1, name = bicycle, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 2, name = car, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 3, name = motorbike, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 4, name = aeroplane, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 5, name = bus, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 6, name = train, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 7, name = truck, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 8, name = boat, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 9, name = traffic light, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 10, name = fire hydrant, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 11, name = stop sign, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 12, name = parking meter, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 13, name = bench, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 14, name = bird, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 15, name = cat, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 16, name = dog, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 17, name = horse, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 18, name = sheep, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 19, name = cow, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 20, name = elephant, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 21, name = bear, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 22, name = zebra, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 23, name = giraffe, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 24, name = backpack, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 25, name = umbrella, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 26, name = handbag, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 27, name = tie, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 28, name = suitcase, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 29, name = frisbee, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 30, name = skis, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 31, name = snowboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 32, name = sports ball, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 33, name = kite, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 34, name = baseball bat, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 35, name = baseball glove, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 36, name = skateboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 37, name = surfboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 38, name = tennis racket, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 39, name = bottle, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 40, name = wine glass, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 41, name = cup, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 42, name = fork, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 43, name = knife, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 44, name = spoon, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 45, name = bowl, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 46, name = banana, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 47, name = apple, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 48, name = sandwich, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 49, name = orange, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 50, name = broccoli, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 51, name = carrot, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 52, name = hot dog, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 53, name = pizza, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 54, name = donut, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 55, name = cake, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 56, name = chair, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 57, name = sofa, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 58, name = pottedplant, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 59, name = bed, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 60, name = diningtable, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 61, name = toilet, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 62, name = tvmonitor, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 63, name = laptop, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 64, name = mouse, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 65, name = remote, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 66, name = keyboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 67, name = cell phone, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 68, name = microwave, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 69, name = oven, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 70, name = toaster, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 71, name = sink, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 72, name = refrigerator, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 73, name = book, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 74, name = clock, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 75, name = vase, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 76, name = scissors, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 77, name = teddy bear, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 78, name = hair drier, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 79, name = toothbrush, ap = 0.00%   	 (TP = 0, FP = 0)
+    * For profiling: The provided Xilinx's Ultra96 Fpga board. log: scratch/lshw_board
+      <details><summary>lshw for board</summary>
+      <p>
+      ee382n4
+          description: Computer
+          product: Avnet Ultra96 Rev1
+          width: 64 bits
+          capabilities: smp
+        *-core
+            description: Motherboard
+            physical id: 0
+          *-cpu:0
+                description: CPU
+                product: cpu
+                physical id: 0
+                bus info: cpu@0
+                size: 1199MHz
+                capacity: 1199MHz
+                capabilities: fp asimd evtstrm aes pmull sha1 sha2 crc32 cpuid cpufreq
+          *-cpu:1
+                description: CPU
+                product: cpu
+                physical id: 1
+                bus info: cpu@1
+                size: 1199MHz
+                capacity: 1199MHz
+                capabilities: fp asimd evtstrm aes pmull sha1 sha2 crc32 cpuid cpufreq
+          *-cpu:2
+                description: CPU
+                product: cpu
+                physical id: 2
+                bus info: cpu@2
+                size: 1199MHz
+                capacity: 1199MHz
+                capabilities: fp asimd evtstrm aes pmull sha1 sha2 crc32 cpuid cpufreq
+          *-cpu:3
+                description: CPU
+                product: cpu
+                physical id: 3
+                bus info: cpu@3
+                size: 1199MHz
+                capacity: 1199MHz
+                capabilities: fp asimd evtstrm aes pmull sha1 sha2 crc32 cpuid cpufreq
+          *-cpu:4 DISABLED
+                description: CPU
+                product: idle-states
+                physical id: 4
+                bus info: cpu@4
+          *-memory
+                description: System memory
+                physical id: 5
+                size: 1983MiB
+        *-usbhost:0
+            product: xHCI Host Controller
+            vendor: Linux 4.14.0-xilinx-v2018.3 xhci-hcd
+            physical id: 1
+            bus info: usb@1
+            logical name: usb1
+            version: 4.14
+            capabilities: usb-2.00
+            configuration: driver=hub slots=1 speed=480Mbit/s
+          *-usb
+                description: USB hub
+                product: USB2744
+                vendor: Microchip Tech
+                physical id: 1
+                bus info: usb@1:1
+                version: 2.21
+                capabilities: usb-2.10
+                configuration: driver=hub slots=4 speed=480Mbit/s
+              *-usb UNCLAIMED
+                  description: Generic USB device
+                  product: Hub Controller
+                  vendor: Microchip Tech
+                  physical id: 4
+                  bus info: usb@1:1.4
+                  version: 2.00
+                  capabilities: usb-2.01
+                  configuration: speed=480Mbit/s
+        *-usbhost:1
+            product: xHCI Host Controller
+            vendor: Linux 4.14.0-xilinx-v2018.3 xhci-hcd
+            physical id: 2
+            bus info: usb@2
+            logical name: usb2
+            version: 4.14
+            capabilities: usb-3.00
+            configuration: driver=hub slots=1 speed=5000Mbit/s
+          *-usb
+                description: USB hub
+                product: USB5744
+                vendor: Microchip Tech
+                physical id: 1
+                bus info: usb@2:1
+                version: 2.21
+                capabilities: usb-3.20
+                configuration: driver=hub slots=3 speed=5000Mbit/s
+        *-network:0
+            description: Wireless interface
+            physical id: 3
+            logical name: wlan0
+            serial: fa:f0:05:79:7d:a2
+            capabilities: ethernet physical wireless
+            configuration: broadcast=yes driver=wilc_sdio ip=192.168.1.4 multicast=yes wireless=IEEE 802.11
+        *-network:1
+            description: Wireless interface
+            physical id: 4
+            logical name: p2p0
+            serial: f8:f0:05:79:7d:a2
+            capabilities: ethernet physical wireless
+            configuration: broadcast=yes driver=wilc_sdio multicast=yes wireless=IEEE 802.11
+            </p>
+            </details>
+            
+    
+### Compiling and running darknet
+* We did not cross-compile for arm platform. Instead, we used this git repo to maintain source code, which was directly compiled on the individual machines.
 
-        for conf_thresh = 0.25, precision = -nan, recall = 0.00, F1-score = -nan
-        for conf_thresh = 0.25, TP = 0, FP = 0, FN = 4, average IoU = 0.00 %
+* Debug flag is added, and set to 1, in the Makefile.
+#### Different options to run darknet
+1. To test: makes predictions on the provided image. 
+	i. If '-save_labels' option is also provided, a '.txt' file, with predicted bounding boxes appear. 
+    ```bash
+    run_type=test
+    var=fpx
+    ts=$(date "+%H%M%S.%d%m%Y")
+    ./darknet detector $run_type cfg/coco.data \
+      cfg/yolov3-tiny.cfg yolov3-tiny.weights data/dog.jpg 2>&1 \
+      | tee log/arm.$run_type.$var.$ts
+    ```
+	ii. Note: use the predictions made with floating point as the ground truth while calculating mAP of our modified darknet code.
 
-        IoU threshold = 50 %, used Area-Under-Curve for each unique Recall
+2. mAP calculator: makes predictions and compares the result with the ground-thuth present in 'data' directory. 
+    ```bash
+    run_type=map
+    var=fpx
+    ts=$(date "+%H%M%S.%d%m%Y")
+    ./darknet detector $run_type cfg/coco.data \
+      cfg/yolov3-tiny.cfg yolov3-tiny.weights data/dog.jpg 2>&1 \
+      | tee log/arm.$run_type.$var.$ts
+    ```
 
-        mean average precision (mAP) = 0.000000, or 0.00 % (1 classes)
-        Total Detection Time: 98 Seconds
-        ```
-        </p>
-        </details>
-        
-    * Experiments on different scale: Here is a summary 
-        * Table
+## Details
+### Directory structure and new files added
+You may see pointers to files in the following directories as you read through
+the experiments and reports. Please feel free to open them for further
+analysys
+
+We add the following new directories:
+  * log           // contains darknet run logs. 
+  * perf_results  // contains gprof results of the runs
+  * scratch       // any miscellaneous files
+
+We added the following files
+  * src/snr_test.c // contains the source code for calculating snrs for
+   matrix multiplications.
+  * src/snr_test.h
+
+We edited the following files
+  * src/darknet.c
+  * src/gemm.c
+
+## experiments and results
+
+#### Base model (floating point) mAP results on my intel machine 
+With no modifications, here are the results: as expected, we get 100% mAP.
+  ```bash
+  IoU threshold = 50 %, used Area-Under-Curve for each unique Recall
+
+  mean average precision (mAP) = 1.000000, or 100.00 % (4 classes)
+  Total Detection Time: 1 Seconds
+  ```
+
+#### Experiments with fixed point conversions
+##### Code changes 
+  ```c
+  DTYPE ALPHA_con = __roundup(ALPHA * (1 << scale)); //printf("ALPHA = %d\n", ALPHA_con);
+
+  for (i = 0; i < M; ++i) {
+      for (k = 0; k < K; ++k) {
+          PUT_IN_REGISTER int A_PART = ((ALPHA_con * __roundup(A[i * lda + k]
+          * (1 << scale))) / ( 1 << scale));
+
+          for (j = 0; j < N; ++j) {
+              C[i*ldc + j] += ((float)((A_PART *
+                                      __roundup( B[k*ldb + j] * (1 << scale))) 
+                                     /(1 << scale)))    /  ( 1 << scale);
+
+          }
+      }
+  }
+  ```
+##### Issues
+We note the following issues with our fixed point implementation:
+  1. Bad mAP for scale = 16 (default).  log = log/intel.fx.scale_16.initial_run
+
+    ```bash
+    ...
+    for conf_thresh = 0.25, precision = -nan, recall = 0.00, F1-score = -nan
+    for conf_thresh = 0.25, TP = 0, FP = 0, FN = 4, average IoU = 0.00 %
+
+    IoU threshold = 50 %, used Area-Under-Curve for each unique Recall
+
+    mean average precision (mAP) = 0.000000, or 0.00 % (1 classes)
+    Total Detection Time: 98 Seconds
+    ```
+  We continued to check mAP for scales higher than 16 expecting mAP to increase.
+  Interestingly, we did not find any scale that gave close to floating point
+  results. 
+
+    * log = log/intel.fx.scale_17_27.initial_run)
+    * Here is a summary:
+
             | Scale         |     mAP %             |
             | ------------- |     -------------     |
             | 17            |     1.77 % (3 classes)|
@@ -268,2440 +855,216 @@
             | 27            |     1.12 % (3 classes)|
 
 
-        <details><summary>Results</summary>
-        <p>
+  To get a better picture of the given data and appropriate scales, we did the
+  following analysis:
 
-        ```bash
-        Scale = 17
-        Building project...
-        GPU isn't used
-        OpenCV isn't used - data augmentation will be slow
-        mini_batch = 1, batch = 1, time_steps = 1, train = 0
-        layer   filters  size/strd(dil)      input                output
-        0 conv     16       3 x 3/ 1    416 x 416 x   3 ->  416 x 416 x  16 0.150 BF
-        1 max                2x 2/ 2    416 x 416 x  16 ->  208 x 208 x  16 0.003 BF
-        2 conv     32       3 x 3/ 1    208 x 208 x  16 ->  208 x 208 x  32 0.399 BF
-        3 max                2x 2/ 2    208 x 208 x  32 ->  104 x 104 x  32 0.001 BF
-        4 conv     64       3 x 3/ 1    104 x 104 x  32 ->  104 x 104 x  64 0.399 BF
-        5 max                2x 2/ 2    104 x 104 x  64 ->   52 x  52 x  64 0.001 BF
-        6 conv    128       3 x 3/ 1     52 x  52 x  64 ->   52 x  52 x 128 0.399 BF
-        7 max                2x 2/ 2     52 x  52 x 128 ->   26 x  26 x 128 0.000 BF
-        8 conv    256       3 x 3/ 1     26 x  26 x 128 ->   26 x  26 x 256 0.399 BF
-        9 max                2x 2/ 2     26 x  26 x 256 ->   13 x  13 x 256 0.000 BF
-        10 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
-        11 max                2x 2/ 1     13 x  13 x 512 ->   13 x  13 x 512 0.000 BF
-        12 conv   1024       3 x 3/ 1     13 x  13 x 512 ->   13 x  13 x1024 1.595 BF
-        13 conv    256       1 x 1/ 1     13 x  13 x1024 ->   13 x  13 x 256 0.089 BF
-        14 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
-        15 conv    255       1 x 1/ 1     13 x  13 x 512 ->   13 x  13 x 255 0.044 BF
-        16 yolo
-        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
-        17 route  13 		                           ->   13 x  13 x 256
-        18 conv    128       1 x 1/ 1     13 x  13 x 256 ->   13 x  13 x 128 0.011 BF
-        19 upsample                 2x    13 x  13 x 128 ->   26 x  26 x 128
-        20 route  19 8 	                           ->   26 x  26 x 384
-        21 conv    256       3 x 3/ 1     26 x  26 x 384 ->   26 x  26 x 256 1.196 BF
-        22 conv    255       1 x 1/ 1     26 x  26 x 256 ->   26 x  26 x 255 0.088 BF
-        23 yolo
-        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
-        Total BFLOPS 5.571
-        avg_outputs = 341534
-        Loading weights from yolov3-tiny.weights...
-        seen 64, trained: 32013 K-images (500 Kilo-batches_64)
-        Done! Loaded 24 layers from weights-file
+  * The range of numbers present in the filters and input data (data/dog.jpg).
+  By maintaining two global variables maximum and minimum, we figured the range
+  of number:
 
-        calculation mAP (mean average precision)...
-        Detection layer: 16 - type = 28
-        Detection layer: 23 - type = 28
-        1
-        detections_count = 136925, unique_truth_count = 4
-        class_id = 0, name = person, ap = 0.00%   	 (TP = 0, FP = 4)
-        class_id = 1, name = bicycle, ap = 1.49%   	 (TP = 0, FP = 0)
-        class_id = 2, name = car, ap = 0.58%   	 (TP = 0, FP = 31)
-        class_id = 3, name = motorbike, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 4, name = aeroplane, ap = 0.00%   	 (TP = 0, FP = 2)
-        class_id = 5, name = bus, ap = 0.00%   	 (TP = 0, FP = 3)
-        class_id = 6, name = train, ap = 0.00%   	 (TP = 0, FP = 3)
-        class_id = 7, name = truck, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 8, name = boat, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 9, name = traffic light, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 10, name = fire hydrant, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 11, name = stop sign, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 12, name = parking meter, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 13, name = bench, ap = 0.00%   	 (TP = 0, FP = 1)
-        class_id = 14, name = bird, ap = 0.00%   	 (TP = 0, FP = 1)
-        class_id = 15, name = cat, ap = 0.00%   	 (TP = 0, FP = 1)
-        class_id = 16, name = dog, ap = 3.23%   	 (TP = 0, FP = 0)
-        class_id = 17, name = horse, ap = 0.00%   	 (TP = 0, FP = 1)
-        class_id = 18, name = sheep, ap = 0.00%   	 (TP = 0, FP = 12)
-        class_id = 19, name = cow, ap = 0.00%   	 (TP = 0, FP = 13)
-        class_id = 20, name = elephant, ap = 0.00%   	 (TP = 0, FP = 1)
-        class_id = 21, name = bear, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 22, name = zebra, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 23, name = giraffe, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 24, name = backpack, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 25, name = umbrella, ap = 0.00%   	 (TP = 0, FP = 1)
-        class_id = 26, name = handbag, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 27, name = tie, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 28, name = suitcase, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 29, name = frisbee, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 30, name = skis, ap = 0.00%   	 (TP = 0, FP = 2)
-        class_id = 31, name = snowboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 32, name = sports ball, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 33, name = kite, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 34, name = baseball bat, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 35, name = baseball glove, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 36, name = skateboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 37, name = surfboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 38, name = tennis racket, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 39, name = bottle, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 40, name = wine glass, ap = 0.00%   	 (TP = 0, FP = 1)
-        class_id = 41, name = cup, ap = 0.00%   	 (TP = 0, FP = 2)
-        class_id = 42, name = fork, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 43, name = knife, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 44, name = spoon, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 45, name = bowl, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 46, name = banana, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 47, name = apple, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 48, name = sandwich, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 49, name = orange, ap = 0.00%   	 (TP = 0, FP = 2)
-        class_id = 50, name = broccoli, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 51, name = carrot, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 52, name = hot dog, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 53, name = pizza, ap = 0.00%   	 (TP = 0, FP = 1)
-        class_id = 54, name = donut, ap = 0.00%   	 (TP = 0, FP = 1)
-        class_id = 55, name = cake, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 56, name = chair, ap = 0.00%   	 (TP = 0, FP = 10)
-        class_id = 57, name = sofa, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 58, name = pottedplant, ap = 0.00%   	 (TP = 0, FP = 1)
-        class_id = 59, name = bed, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 60, name = diningtable, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 61, name = toilet, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 62, name = tvmonitor, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 63, name = laptop, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 64, name = mouse, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 65, name = remote, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 66, name = keyboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 67, name = cell phone, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 68, name = microwave, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 69, name = oven, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 70, name = toaster, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 71, name = sink, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 72, name = refrigerator, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 73, name = book, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 74, name = clock, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 75, name = vase, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 76, name = scissors, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 77, name = teddy bear, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 78, name = hair drier, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 79, name = toothbrush, ap = 0.00%   	 (TP = 0, FP = 0)
+    * max = 76.966393, min = -17.589060
+    * However, it is unclear whether the max and min are completely from
+    filters or images. For example, the filters could be in the range 10^(-20)
+    to 10^(-30); and the image could be in the range 10^(+10) to 10^(+20). 
+    In the above example, it is difficult to find one common range. For time
+    being, we assumed that filters and inputs have similar range of numbers. If
+    they follow a different distribution, we could possibly use different scales
+    and further improve the performace and accuracy.
 
-        for conf_thresh = 0.25, precision = 0.00, recall = 0.00, F1-score = -nan
-        for conf_thresh = 0.25, TP = 0, FP = 94, FN = 4, average IoU = 0.00 %
+  With a common scale between the filters and numbers, we started to find the
+  SNR for the given data. We first implemented code for SNR in c, and tested it
+  on the given testbench. We obtained the following results:
 
-        IoU threshold = 50 %, used Area-Under-Curve for each unique Recall
+###### SNR: 
+  For the testbench provided at * [tb](http://users.ece.utexas.edu/~gerstl/ece382m_f21/labs/lab1/testbench.m),
+      we got the following results for different values of scaling:
+      * logfile = 'log/snr.231906.17092021'
+      * results
+          |scale    | snr  |
+          |---------|-------- |
+          | 8       | 18.262178|
+          | 9       | 25.754839|
+          | 10      | 38.904385|
+          | 11      | 50.432785|
+          | 12      | 64.333061|
+          | 13      | 78.565445|
+          | 14      | 90.450508|
+          | 15      | 105.698715|
+          | 16      | -4.251273|
+          | 17      | -0.958876|
+          | 18      | -0.754522|
+          | 19      | 0.000042|
 
-        mean average precision (mAP) = 0.017677, or 1.77 % (3 classes)
-        Total Detection Time: 85 Seconds
+  Now, with the above SNR code, we calculated SNR between floating point and
+  fixed-point implementations of gemm for different scales in fixed point. We
+  obtained the following results.
 
-        Set -points flag:
-        `-points 101` for MS COCO
-        `-points 11` for PascalVOC 2007 (uncomment `difficult` in voc.data)
-        `-points 0` (AUC) for ImageNet, PascalVOC 2010-2012, your custom dataset
-        Scale = 18
-        Building project...
-        GPU isn't used
-        OpenCV isn't used - data augmentation will be slow
-        mini_batch = 1, batch = 1, time_steps = 1, train = 0
-        layer   filters  size/strd(dil)      input                output
-        0 conv     16       3 x 3/ 1    416 x 416 x   3 ->  416 x 416 x  16 0.150 BF
-        1 max                2x 2/ 2    416 x 416 x  16 ->  208 x 208 x  16 0.003 BF
-        2 conv     32       3 x 3/ 1    208 x 208 x  16 ->  208 x 208 x  32 0.399 BF
-        3 max                2x 2/ 2    208 x 208 x  32 ->  104 x 104 x  32 0.001 BF
-        4 conv     64       3 x 3/ 1    104 x 104 x  32 ->  104 x 104 x  64 0.399 BF
-        5 max                2x 2/ 2    104 x 104 x  64 ->   52 x  52 x  64 0.001 BF
-        6 conv    128       3 x 3/ 1     52 x  52 x  64 ->   52 x  52 x 128 0.399 BF
-        7 max                2x 2/ 2     52 x  52 x 128 ->   26 x  26 x 128 0.000 BF
-        8 conv    256       3 x 3/ 1     26 x  26 x 128 ->   26 x  26 x 256 0.399 BF
-        9 max                2x 2/ 2     26 x  26 x 256 ->   13 x  13 x 256 0.000 BF
-        10 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
-        11 max                2x 2/ 1     13 x  13 x 512 ->   13 x  13 x 512 0.000 BF
-        12 conv   1024       3 x 3/ 1     13 x  13 x 512 ->   13 x  13 x1024 1.595 BF
-        13 conv    256       1 x 1/ 1     13 x  13 x1024 ->   13 x  13 x 256 0.089 BF
-        14 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
-        15 conv    255       1 x 1/ 1     13 x  13 x 512 ->   13 x  13 x 255 0.044 BF
-        16 yolo
-        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
-        17 route  13 		                           ->   13 x  13 x 256
-        18 conv    128       1 x 1/ 1     13 x  13 x 256 ->   13 x  13 x 128 0.011 BF
-        19 upsample                 2x    13 x  13 x 128 ->   26 x  26 x 128
-        20 route  19 8 	                           ->   26 x  26 x 384
-        21 conv    256       3 x 3/ 1     26 x  26 x 384 ->   26 x  26 x 256 1.196 BF
-        22 conv    255       1 x 1/ 1     26 x  26 x 256 ->   26 x  26 x 255 0.088 BF
-        23 yolo
-        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
-        Total BFLOPS 5.571
-        avg_outputs = 341534
-        Loading weights from yolov3-tiny.weights...
-        seen 64, trained: 32013 K-images (500 Kilo-batches_64)
-        Done! Loaded 24 layers from weights-file
+    * table 
+      |scale  | snr |
+      |---    |-------------|
+      |1      | 25.368002|
+      |2      | 28.792755|
+      |3      | 43.377327|
+      |4      | 54.751232|
+      |5      | 67.387032|
+      |6      | 77.842567|
+      |7      | 94.654114|
+      |8      | 102.631355|
+      |9      | 117.446495|
+      |10     | 130.757172|
+      |11     | 146.535904|
+      |12     | 160.423248|
+      |13     | 174.414871|
+      |14     | 74.169121|
+      |15     | 1.698584|
+      |16     | 0.076399|
+      |17     | 0.178493|
+      |18     | -0.167274|
+      |19     | 0.012987|
+      |20     | 0.009955|
+      |21     | -0.004165|
 
-        calculation mAP (mean average precision)...
-        Detection layer: 16 - type = 28
-        Detection layer: 23 - type = 28
-        1
-        detections_count = 138440, unique_truth_count = 4
-        class_id = 0, name = person, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 1, name = bicycle, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 2, name = car, ap = 1.64%   	 (TP = 0, FP = 0)
-        class_id = 3, name = motorbike, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 4, name = aeroplane, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 5, name = bus, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 6, name = train, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 7, name = truck, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 8, name = boat, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 9, name = traffic light, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 10, name = fire hydrant, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 11, name = stop sign, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 12, name = parking meter, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 13, name = bench, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 14, name = bird, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 15, name = cat, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 16, name = dog, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 17, name = horse, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 18, name = sheep, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 19, name = cow, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 20, name = elephant, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 21, name = bear, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 22, name = zebra, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 23, name = giraffe, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 24, name = backpack, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 25, name = umbrella, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 26, name = handbag, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 27, name = tie, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 28, name = suitcase, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 29, name = frisbee, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 30, name = skis, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 31, name = snowboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 32, name = sports ball, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 33, name = kite, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 34, name = baseball bat, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 35, name = baseball glove, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 36, name = skateboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 37, name = surfboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 38, name = tennis racket, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 39, name = bottle, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 40, name = wine glass, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 41, name = cup, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 42, name = fork, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 43, name = knife, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 44, name = spoon, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 45, name = bowl, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 46, name = banana, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 47, name = apple, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 48, name = sandwich, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 49, name = orange, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 50, name = broccoli, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 51, name = carrot, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 52, name = hot dog, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 53, name = pizza, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 54, name = donut, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 55, name = cake, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 56, name = chair, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 57, name = sofa, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 58, name = pottedplant, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 59, name = bed, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 60, name = diningtable, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 61, name = toilet, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 62, name = tvmonitor, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 63, name = laptop, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 64, name = mouse, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 65, name = remote, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 66, name = keyboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 67, name = cell phone, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 68, name = microwave, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 69, name = oven, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 70, name = toaster, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 71, name = sink, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 72, name = refrigerator, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 73, name = book, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 74, name = clock, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 75, name = vase, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 76, name = scissors, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 77, name = teddy bear, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 78, name = hair drier, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 79, name = toothbrush, ap = 0.00%   	 (TP = 0, FP = 0)
+  It is clear from the above table that, a common scale of 13 is a good fit. As
+  specified in the document, it's SNR is well above the recommended SNR of 40.
 
-        for conf_thresh = 0.25, precision = -nan, recall = 0.00, F1-score = -nan
-        for conf_thresh = 0.25, TP = 0, FP = 0, FN = 4, average IoU = 0.00 %
+  From here on, we took 13 as the our scaling factor for further experiments,
+  wherever we use fixed point conversions.
 
-        IoU threshold = 50 %, used Area-Under-Curve for each unique Recall
+##### Performace drop
+* We noted a 8x in performance degradation after this floating to fixed
+ point conversions. The following observations were made on the above code and
+ further optimizations in the operations were made:
+ 1. The \__roundup is not doing a lot of useful work. Hence, after scaling
+ and converting to fixed type, we can simply type-case to int type instead of
+ using the rounding off function.
+ 2. While doing the fixed point operations, we need to divide the number with
+ (1 << scale). In fixed-point, this is equivalent to a simple bit shifting by
+ scale amount.
 
-        mean average precision (mAP) = 0.016393, or 1.64 % (1 classes)
-        Total Detection Time: 82 Seconds
+  ```c
+  PUT_IN_REGISTER DTYPE SCALE_NUM = (1 << scale);
+  PUT_IN_REGISTER DTYPE ALPHA_con = (int)(ALPHA * SCALE_NUM);
 
-        Set -points flag:
-        `-points 101` for MS COCO
-        `-points 11` for PascalVOC 2007 (uncomment `difficult` in voc.data)
-        `-points 0` (AUC) for ImageNet, PascalVOC 2010-2012, your custom dataset
-        Scale = 19
-        Building project...
-        GPU isn't used
-        OpenCV isn't used - data augmentation will be slow
-        mini_batch = 1, batch = 1, time_steps = 1, train = 0
-        layer   filters  size/strd(dil)      input                output
-        0 conv     16       3 x 3/ 1    416 x 416 x   3 ->  416 x 416 x  16 0.150 BF
-        1 max                2x 2/ 2    416 x 416 x  16 ->  208 x 208 x  16 0.003 BF
-        2 conv     32       3 x 3/ 1    208 x 208 x  16 ->  208 x 208 x  32 0.399 BF
-        3 max                2x 2/ 2    208 x 208 x  32 ->  104 x 104 x  32 0.001 BF
-        4 conv     64       3 x 3/ 1    104 x 104 x  32 ->  104 x 104 x  64 0.399 BF
-        5 max                2x 2/ 2    104 x 104 x  64 ->   52 x  52 x  64 0.001 BF
-        6 conv    128       3 x 3/ 1     52 x  52 x  64 ->   52 x  52 x 128 0.399 BF
-        7 max                2x 2/ 2     52 x  52 x 128 ->   26 x  26 x 128 0.000 BF
-        8 conv    256       3 x 3/ 1     26 x  26 x 128 ->   26 x  26 x 256 0.399 BF
-        9 max                2x 2/ 2     26 x  26 x 256 ->   13 x  13 x 256 0.000 BF
-        10 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
-        11 max                2x 2/ 1     13 x  13 x 512 ->   13 x  13 x 512 0.000 BF
-        12 conv   1024       3 x 3/ 1     13 x  13 x 512 ->   13 x  13 x1024 1.595 BF
-        13 conv    256       1 x 1/ 1     13 x  13 x1024 ->   13 x  13 x 256 0.089 BF
-        14 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
-        15 conv    255       1 x 1/ 1     13 x  13 x 512 ->   13 x  13 x 255 0.044 BF
-        16 yolo
-        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
-        17 route  13 		                           ->   13 x  13 x 256
-        18 conv    128       1 x 1/ 1     13 x  13 x 256 ->   13 x  13 x 128 0.011 BF
-        19 upsample                 2x    13 x  13 x 128 ->   26 x  26 x 128
-        20 route  19 8 	                           ->   26 x  26 x 384
-        21 conv    256       3 x 3/ 1     26 x  26 x 384 ->   26 x  26 x 256 1.196 BF
-        22 conv    255       1 x 1/ 1     26 x  26 x 256 ->   26 x  26 x 255 0.088 BF
-        23 yolo
-        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
-        Total BFLOPS 5.571
-        avg_outputs = 341534
-        Loading weights from yolov3-tiny.weights...
-        seen 64, trained: 32013 K-images (500 Kilo-batches_64)
-        Done! Loaded 24 layers from weights-file
+  for (i = 0; i < M; ++i) {
 
-        calculation mAP (mean average precision)...
-        Detection layer: 16 - type = 28
-        Detection layer: 23 - type = 28
-        1
-        detections_count = 124485, unique_truth_count = 4
-        class_id = 0, name = person, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 1, name = bicycle, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 2, name = car, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 3, name = motorbike, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 4, name = aeroplane, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 5, name = bus, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 6, name = train, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 7, name = truck, ap = 0.06%   	 (TP = 0, FP = 0)
-        class_id = 8, name = boat, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 9, name = traffic light, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 10, name = fire hydrant, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 11, name = stop sign, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 12, name = parking meter, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 13, name = bench, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 14, name = bird, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 15, name = cat, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 16, name = dog, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 17, name = horse, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 18, name = sheep, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 19, name = cow, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 20, name = elephant, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 21, name = bear, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 22, name = zebra, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 23, name = giraffe, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 24, name = backpack, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 25, name = umbrella, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 26, name = handbag, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 27, name = tie, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 28, name = suitcase, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 29, name = frisbee, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 30, name = skis, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 31, name = snowboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 32, name = sports ball, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 33, name = kite, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 34, name = baseball bat, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 35, name = baseball glove, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 36, name = skateboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 37, name = surfboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 38, name = tennis racket, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 39, name = bottle, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 40, name = wine glass, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 41, name = cup, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 42, name = fork, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 43, name = knife, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 44, name = spoon, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 45, name = bowl, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 46, name = banana, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 47, name = apple, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 48, name = sandwich, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 49, name = orange, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 50, name = broccoli, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 51, name = carrot, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 52, name = hot dog, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 53, name = pizza, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 54, name = donut, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 55, name = cake, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 56, name = chair, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 57, name = sofa, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 58, name = pottedplant, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 59, name = bed, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 60, name = diningtable, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 61, name = toilet, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 62, name = tvmonitor, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 63, name = laptop, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 64, name = mouse, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 65, name = remote, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 66, name = keyboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 67, name = cell phone, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 68, name = microwave, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 69, name = oven, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 70, name = toaster, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 71, name = sink, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 72, name = refrigerator, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 73, name = book, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 74, name = clock, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 75, name = vase, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 76, name = scissors, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 77, name = teddy bear, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 78, name = hair drier, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 79, name = toothbrush, ap = 0.00%   	 (TP = 0, FP = 0)
+      for (k = 0; k < K; ++k) {
+          PUT_IN_REGISTER DTYPE A_PART 
+              = (ALPHA_con * (int)(A[i * lda + k] * SCALE_NUM))
+                    >> scale;
 
-        for conf_thresh = 0.25, precision = -nan, recall = 0.00, F1-score = -nan
-        for conf_thresh = 0.25, TP = 0, FP = 0, FN = 4, average IoU = 0.00 %
+          for (j = 0; j < N; ++j) {
+              C[i*ldc + j] 
+                  += ( (float)(
+                    (A_PART * (int)(B[k*ldb + j] * SCALE_NUM)) 
+                          >> scale))
+                            / SCALE_NUM;
+          }
+      }
+  }
+  ```
+  3. We note that one floating-point operation in our fixed-point
+  implementation is unavoidable for every multiplication operation. To analyze this further, consider the below code, 
 
-        IoU threshold = 50 %, used Area-Under-Curve for each unique Recall
-
-        mean average precision (mAP) = 0.000591, or 0.06 % (1 classes)
-        Total Detection Time: 81 Seconds
-
-        Set -points flag:
-        `-points 101` for MS COCO
-        `-points 11` for PascalVOC 2007 (uncomment `difficult` in voc.data)
-        `-points 0` (AUC) for ImageNet, PascalVOC 2010-2012, your custom dataset
-        Scale = 20
-        Building project...
-        GPU isn't used
-        OpenCV isn't used - data augmentation will be slow
-        mini_batch = 1, batch = 1, time_steps = 1, train = 0
-        layer   filters  size/strd(dil)      input                output
-        0 conv     16       3 x 3/ 1    416 x 416 x   3 ->  416 x 416 x  16 0.150 BF
-        1 max                2x 2/ 2    416 x 416 x  16 ->  208 x 208 x  16 0.003 BF
-        2 conv     32       3 x 3/ 1    208 x 208 x  16 ->  208 x 208 x  32 0.399 BF
-        3 max                2x 2/ 2    208 x 208 x  32 ->  104 x 104 x  32 0.001 BF
-        4 conv     64       3 x 3/ 1    104 x 104 x  32 ->  104 x 104 x  64 0.399 BF
-        5 max                2x 2/ 2    104 x 104 x  64 ->   52 x  52 x  64 0.001 BF
-        6 conv    128       3 x 3/ 1     52 x  52 x  64 ->   52 x  52 x 128 0.399 BF
-        7 max                2x 2/ 2     52 x  52 x 128 ->   26 x  26 x 128 0.000 BF
-        8 conv    256       3 x 3/ 1     26 x  26 x 128 ->   26 x  26 x 256 0.399 BF
-        9 max                2x 2/ 2     26 x  26 x 256 ->   13 x  13 x 256 0.000 BF
-        10 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
-        11 max                2x 2/ 1     13 x  13 x 512 ->   13 x  13 x 512 0.000 BF
-        12 conv   1024       3 x 3/ 1     13 x  13 x 512 ->   13 x  13 x1024 1.595 BF
-        13 conv    256       1 x 1/ 1     13 x  13 x1024 ->   13 x  13 x 256 0.089 BF
-        14 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
-        15 conv    255       1 x 1/ 1     13 x  13 x 512 ->   13 x  13 x 255 0.044 BF
-        16 yolo
-        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
-        17 route  13 		                           ->   13 x  13 x 256
-        18 conv    128       1 x 1/ 1     13 x  13 x 256 ->   13 x  13 x 128 0.011 BF
-        19 upsample                 2x    13 x  13 x 128 ->   26 x  26 x 128
-        20 route  19 8 	                           ->   26 x  26 x 384
-        21 conv    256       3 x 3/ 1     26 x  26 x 384 ->   26 x  26 x 256 1.196 BF
-        22 conv    255       1 x 1/ 1     26 x  26 x 256 ->   26 x  26 x 255 0.088 BF
-        23 yolo
-        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
-        Total BFLOPS 5.571
-        avg_outputs = 341534
-        Loading weights from yolov3-tiny.weights...
-        seen 64, trained: 32013 K-images (500 Kilo-batches_64)
-        Done! Loaded 24 layers from weights-file
-
-        calculation mAP (mean average precision)...
-        Detection layer: 16 - type = 28
-        Detection layer: 23 - type = 28
-        1
-        detections_count = 123185, unique_truth_count = 4
-        class_id = 0, name = person, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 1, name = bicycle, ap = 3.23%   	 (TP = 0, FP = 0)
-        class_id = 2, name = car, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 3, name = motorbike, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 4, name = aeroplane, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 5, name = bus, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 6, name = train, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 7, name = truck, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 8, name = boat, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 9, name = traffic light, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 10, name = fire hydrant, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 11, name = stop sign, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 12, name = parking meter, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 13, name = bench, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 14, name = bird, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 15, name = cat, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 16, name = dog, ap = 4.55%   	 (TP = 0, FP = 0)
-        class_id = 17, name = horse, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 18, name = sheep, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 19, name = cow, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 20, name = elephant, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 21, name = bear, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 22, name = zebra, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 23, name = giraffe, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 24, name = backpack, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 25, name = umbrella, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 26, name = handbag, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 27, name = tie, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 28, name = suitcase, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 29, name = frisbee, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 30, name = skis, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 31, name = snowboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 32, name = sports ball, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 33, name = kite, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 34, name = baseball bat, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 35, name = baseball glove, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 36, name = skateboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 37, name = surfboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 38, name = tennis racket, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 39, name = bottle, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 40, name = wine glass, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 41, name = cup, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 42, name = fork, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 43, name = knife, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 44, name = spoon, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 45, name = bowl, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 46, name = banana, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 47, name = apple, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 48, name = sandwich, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 49, name = orange, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 50, name = broccoli, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 51, name = carrot, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 52, name = hot dog, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 53, name = pizza, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 54, name = donut, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 55, name = cake, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 56, name = chair, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 57, name = sofa, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 58, name = pottedplant, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 59, name = bed, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 60, name = diningtable, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 61, name = toilet, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 62, name = tvmonitor, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 63, name = laptop, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 64, name = mouse, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 65, name = remote, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 66, name = keyboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 67, name = cell phone, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 68, name = microwave, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 69, name = oven, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 70, name = toaster, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 71, name = sink, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 72, name = refrigerator, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 73, name = book, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 74, name = clock, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 75, name = vase, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 76, name = scissors, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 77, name = teddy bear, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 78, name = hair drier, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 79, name = toothbrush, ap = 0.00%   	 (TP = 0, FP = 0)
-
-        for conf_thresh = 0.25, precision = -nan, recall = 0.00, F1-score = -nan
-        for conf_thresh = 0.25, TP = 0, FP = 0, FN = 4, average IoU = 0.00 %
-
-        IoU threshold = 50 %, used Area-Under-Curve for each unique Recall
-
-        mean average precision (mAP) = 0.038856, or 3.89 % (2 classes)
-        Total Detection Time: 80 Seconds
-
-        Set -points flag:
-        `-points 101` for MS COCO
-        `-points 11` for PascalVOC 2007 (uncomment `difficult` in voc.data)
-        `-points 0` (AUC) for ImageNet, PascalVOC 2010-2012, your custom dataset
-        Scale = 21
-        Building project...
-        GPU isn't used
-        OpenCV isn't used - data augmentation will be slow
-        mini_batch = 1, batch = 1, time_steps = 1, train = 0
-        layer   filters  size/strd(dil)      input                output
-        0 conv     16       3 x 3/ 1    416 x 416 x   3 ->  416 x 416 x  16 0.150 BF
-        1 max                2x 2/ 2    416 x 416 x  16 ->  208 x 208 x  16 0.003 BF
-        2 conv     32       3 x 3/ 1    208 x 208 x  16 ->  208 x 208 x  32 0.399 BF
-        3 max                2x 2/ 2    208 x 208 x  32 ->  104 x 104 x  32 0.001 BF
-        4 conv     64       3 x 3/ 1    104 x 104 x  32 ->  104 x 104 x  64 0.399 BF
-        5 max                2x 2/ 2    104 x 104 x  64 ->   52 x  52 x  64 0.001 BF
-        6 conv    128       3 x 3/ 1     52 x  52 x  64 ->   52 x  52 x 128 0.399 BF
-        7 max                2x 2/ 2     52 x  52 x 128 ->   26 x  26 x 128 0.000 BF
-        8 conv    256       3 x 3/ 1     26 x  26 x 128 ->   26 x  26 x 256 0.399 BF
-        9 max                2x 2/ 2     26 x  26 x 256 ->   13 x  13 x 256 0.000 BF
-        10 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
-        11 max                2x 2/ 1     13 x  13 x 512 ->   13 x  13 x 512 0.000 BF
-        12 conv   1024       3 x 3/ 1     13 x  13 x 512 ->   13 x  13 x1024 1.595 BF
-        13 conv    256       1 x 1/ 1     13 x  13 x1024 ->   13 x  13 x 256 0.089 BF
-        14 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
-        15 conv    255       1 x 1/ 1     13 x  13 x 512 ->   13 x  13 x 255 0.044 BF
-        16 yolo
-        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
-        17 route  13 		                           ->   13 x  13 x 256
-        18 conv    128       1 x 1/ 1     13 x  13 x 256 ->   13 x  13 x 128 0.011 BF
-        19 upsample                 2x    13 x  13 x 128 ->   26 x  26 x 128
-        20 route  19 8 	                           ->   26 x  26 x 384
-        21 conv    256       3 x 3/ 1     26 x  26 x 384 ->   26 x  26 x 256 1.196 BF
-        22 conv    255       1 x 1/ 1     26 x  26 x 256 ->   26 x  26 x 255 0.088 BF
-        23 yolo
-        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
-        Total BFLOPS 5.571
-        avg_outputs = 341534
-        Loading weights from yolov3-tiny.weights...
-        seen 64, trained: 32013 K-images (500 Kilo-batches_64)
-        Done! Loaded 24 layers from weights-file
-
-        calculation mAP (mean average precision)...
-        Detection layer: 16 - type = 28
-        Detection layer: 23 - type = 28
-        1
-        detections_count = 124209, unique_truth_count = 4
-        class_id = 0, name = person, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 1, name = bicycle, ap = 3.70%   	 (TP = 0, FP = 0)
-        class_id = 2, name = car, ap = 1.30%   	 (TP = 0, FP = 0)
-        class_id = 3, name = motorbike, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 4, name = aeroplane, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 5, name = bus, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 6, name = train, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 7, name = truck, ap = 0.06%   	 (TP = 0, FP = 0)
-        class_id = 8, name = boat, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 9, name = traffic light, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 10, name = fire hydrant, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 11, name = stop sign, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 12, name = parking meter, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 13, name = bench, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 14, name = bird, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 15, name = cat, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 16, name = dog, ap = 4.17%   	 (TP = 0, FP = 0)
-        class_id = 17, name = horse, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 18, name = sheep, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 19, name = cow, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 20, name = elephant, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 21, name = bear, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 22, name = zebra, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 23, name = giraffe, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 24, name = backpack, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 25, name = umbrella, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 26, name = handbag, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 27, name = tie, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 28, name = suitcase, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 29, name = frisbee, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 30, name = skis, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 31, name = snowboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 32, name = sports ball, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 33, name = kite, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 34, name = baseball bat, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 35, name = baseball glove, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 36, name = skateboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 37, name = surfboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 38, name = tennis racket, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 39, name = bottle, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 40, name = wine glass, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 41, name = cup, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 42, name = fork, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 43, name = knife, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 44, name = spoon, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 45, name = bowl, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 46, name = banana, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 47, name = apple, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 48, name = sandwich, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 49, name = orange, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 50, name = broccoli, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 51, name = carrot, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 52, name = hot dog, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 53, name = pizza, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 54, name = donut, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 55, name = cake, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 56, name = chair, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 57, name = sofa, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 58, name = pottedplant, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 59, name = bed, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 60, name = diningtable, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 61, name = toilet, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 62, name = tvmonitor, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 63, name = laptop, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 64, name = mouse, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 65, name = remote, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 66, name = keyboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 67, name = cell phone, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 68, name = microwave, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 69, name = oven, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 70, name = toaster, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 71, name = sink, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 72, name = refrigerator, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 73, name = book, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 74, name = clock, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 75, name = vase, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 76, name = scissors, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 77, name = teddy bear, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 78, name = hair drier, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 79, name = toothbrush, ap = 0.00%   	 (TP = 0, FP = 0)
-
-        for conf_thresh = 0.25, precision = -nan, recall = 0.00, F1-score = -nan
-        for conf_thresh = 0.25, TP = 0, FP = 0, FN = 4, average IoU = 0.00 %
-
-        IoU threshold = 50 %, used Area-Under-Curve for each unique Recall
-
-        mean average precision (mAP) = 0.023083, or 2.31 % (4 classes)
-        Total Detection Time: 87 Seconds
-
-        Set -points flag:
-        `-points 101` for MS COCO
-        `-points 11` for PascalVOC 2007 (uncomment `difficult` in voc.data)
-        `-points 0` (AUC) for ImageNet, PascalVOC 2010-2012, your custom dataset
-        Scale = 22
-        Building project...
-        GPU isn't used
-        OpenCV isn't used - data augmentation will be slow
-        mini_batch = 1, batch = 1, time_steps = 1, train = 0
-        layer   filters  size/strd(dil)      input                output
-        0 conv     16       3 x 3/ 1    416 x 416 x   3 ->  416 x 416 x  16 0.150 BF
-        1 max                2x 2/ 2    416 x 416 x  16 ->  208 x 208 x  16 0.003 BF
-        2 conv     32       3 x 3/ 1    208 x 208 x  16 ->  208 x 208 x  32 0.399 BF
-        3 max                2x 2/ 2    208 x 208 x  32 ->  104 x 104 x  32 0.001 BF
-        4 conv     64       3 x 3/ 1    104 x 104 x  32 ->  104 x 104 x  64 0.399 BF
-        5 max                2x 2/ 2    104 x 104 x  64 ->   52 x  52 x  64 0.001 BF
-        6 conv    128       3 x 3/ 1     52 x  52 x  64 ->   52 x  52 x 128 0.399 BF
-        7 max                2x 2/ 2     52 x  52 x 128 ->   26 x  26 x 128 0.000 BF
-        8 conv    256       3 x 3/ 1     26 x  26 x 128 ->   26 x  26 x 256 0.399 BF
-        9 max                2x 2/ 2     26 x  26 x 256 ->   13 x  13 x 256 0.000 BF
-        10 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
-        11 max                2x 2/ 1     13 x  13 x 512 ->   13 x  13 x 512 0.000 BF
-        12 conv   1024       3 x 3/ 1     13 x  13 x 512 ->   13 x  13 x1024 1.595 BF
-        13 conv    256       1 x 1/ 1     13 x  13 x1024 ->   13 x  13 x 256 0.089 BF
-        14 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
-        15 conv    255       1 x 1/ 1     13 x  13 x 512 ->   13 x  13 x 255 0.044 BF
-        16 yolo
-        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
-        17 route  13 		                           ->   13 x  13 x 256
-        18 conv    128       1 x 1/ 1     13 x  13 x 256 ->   13 x  13 x 128 0.011 BF
-        19 upsample                 2x    13 x  13 x 128 ->   26 x  26 x 128
-        20 route  19 8 	                           ->   26 x  26 x 384
-        21 conv    256       3 x 3/ 1     26 x  26 x 384 ->   26 x  26 x 256 1.196 BF
-        22 conv    255       1 x 1/ 1     26 x  26 x 256 ->   26 x  26 x 255 0.088 BF
-        23 yolo
-        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
-        Total BFLOPS 5.571
-        avg_outputs = 341534
-        Loading weights from yolov3-tiny.weights...
-        seen 64, trained: 32013 K-images (500 Kilo-batches_64)
-        Done! Loaded 24 layers from weights-file
-
-        calculation mAP (mean average precision)...
-        Detection layer: 16 - type = 28
-        Detection layer: 23 - type = 28
-        1
-        detections_count = 124126, unique_truth_count = 4
-        class_id = 0, name = person, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 1, name = bicycle, ap = 3.12%   	 (TP = 0, FP = 0)
-        class_id = 2, name = car, ap = 1.43%   	 (TP = 0, FP = 0)
-        class_id = 3, name = motorbike, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 4, name = aeroplane, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 5, name = bus, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 6, name = train, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 7, name = truck, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 8, name = boat, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 9, name = traffic light, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 10, name = fire hydrant, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 11, name = stop sign, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 12, name = parking meter, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 13, name = bench, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 14, name = bird, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 15, name = cat, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 16, name = dog, ap = 3.03%   	 (TP = 0, FP = 0)
-        class_id = 17, name = horse, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 18, name = sheep, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 19, name = cow, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 20, name = elephant, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 21, name = bear, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 22, name = zebra, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 23, name = giraffe, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 24, name = backpack, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 25, name = umbrella, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 26, name = handbag, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 27, name = tie, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 28, name = suitcase, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 29, name = frisbee, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 30, name = skis, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 31, name = snowboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 32, name = sports ball, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 33, name = kite, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 34, name = baseball bat, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 35, name = baseball glove, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 36, name = skateboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 37, name = surfboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 38, name = tennis racket, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 39, name = bottle, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 40, name = wine glass, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 41, name = cup, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 42, name = fork, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 43, name = knife, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 44, name = spoon, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 45, name = bowl, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 46, name = banana, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 47, name = apple, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 48, name = sandwich, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 49, name = orange, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 50, name = broccoli, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 51, name = carrot, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 52, name = hot dog, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 53, name = pizza, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 54, name = donut, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 55, name = cake, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 56, name = chair, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 57, name = sofa, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 58, name = pottedplant, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 59, name = bed, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 60, name = diningtable, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 61, name = toilet, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 62, name = tvmonitor, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 63, name = laptop, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 64, name = mouse, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 65, name = remote, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 66, name = keyboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 67, name = cell phone, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 68, name = microwave, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 69, name = oven, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 70, name = toaster, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 71, name = sink, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 72, name = refrigerator, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 73, name = book, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 74, name = clock, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 75, name = vase, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 76, name = scissors, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 77, name = teddy bear, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 78, name = hair drier, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 79, name = toothbrush, ap = 0.00%   	 (TP = 0, FP = 0)
-
-        for conf_thresh = 0.25, precision = -nan, recall = 0.00, F1-score = -nan
-        for conf_thresh = 0.25, TP = 0, FP = 0, FN = 4, average IoU = 0.00 %
-
-        IoU threshold = 50 %, used Area-Under-Curve for each unique Recall
-
-        mean average precision (mAP) = 0.025280, or 2.53 % (3 classes)
-        Total Detection Time: 81 Seconds
-
-        Set -points flag:
-        `-points 101` for MS COCO
-        `-points 11` for PascalVOC 2007 (uncomment `difficult` in voc.data)
-        `-points 0` (AUC) for ImageNet, PascalVOC 2010-2012, your custom dataset
-        Scale = 23
-        Building project...
-        GPU isn't used
-        OpenCV isn't used - data augmentation will be slow
-        mini_batch = 1, batch = 1, time_steps = 1, train = 0
-        layer   filters  size/strd(dil)      input                output
-        0 conv     16       3 x 3/ 1    416 x 416 x   3 ->  416 x 416 x  16 0.150 BF
-        1 max                2x 2/ 2    416 x 416 x  16 ->  208 x 208 x  16 0.003 BF
-        2 conv     32       3 x 3/ 1    208 x 208 x  16 ->  208 x 208 x  32 0.399 BF
-        3 max                2x 2/ 2    208 x 208 x  32 ->  104 x 104 x  32 0.001 BF
-        4 conv     64       3 x 3/ 1    104 x 104 x  32 ->  104 x 104 x  64 0.399 BF
-        5 max                2x 2/ 2    104 x 104 x  64 ->   52 x  52 x  64 0.001 BF
-        6 conv    128       3 x 3/ 1     52 x  52 x  64 ->   52 x  52 x 128 0.399 BF
-        7 max                2x 2/ 2     52 x  52 x 128 ->   26 x  26 x 128 0.000 BF
-        8 conv    256       3 x 3/ 1     26 x  26 x 128 ->   26 x  26 x 256 0.399 BF
-        9 max                2x 2/ 2     26 x  26 x 256 ->   13 x  13 x 256 0.000 BF
-        10 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
-        11 max                2x 2/ 1     13 x  13 x 512 ->   13 x  13 x 512 0.000 BF
-        12 conv   1024       3 x 3/ 1     13 x  13 x 512 ->   13 x  13 x1024 1.595 BF
-        13 conv    256       1 x 1/ 1     13 x  13 x1024 ->   13 x  13 x 256 0.089 BF
-        14 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
-        15 conv    255       1 x 1/ 1     13 x  13 x 512 ->   13 x  13 x 255 0.044 BF
-        16 yolo
-        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
-        17 route  13 		                           ->   13 x  13 x 256
-        18 conv    128       1 x 1/ 1     13 x  13 x 256 ->   13 x  13 x 128 0.011 BF
-        19 upsample                 2x    13 x  13 x 128 ->   26 x  26 x 128
-        20 route  19 8 	                           ->   26 x  26 x 384
-        21 conv    256       3 x 3/ 1     26 x  26 x 384 ->   26 x  26 x 256 1.196 BF
-        22 conv    255       1 x 1/ 1     26 x  26 x 256 ->   26 x  26 x 255 0.088 BF
-        23 yolo
-        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
-        Total BFLOPS 5.571
-        avg_outputs = 341534
-        Loading weights from yolov3-tiny.weights...
-        seen 64, trained: 32013 K-images (500 Kilo-batches_64)
-        Done! Loaded 24 layers from weights-file
-
-        calculation mAP (mean average precision)...
-        Detection layer: 16 - type = 28
-        Detection layer: 23 - type = 28
-        1
-        detections_count = 125206, unique_truth_count = 4
-        class_id = 0, name = person, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 1, name = bicycle, ap = 4.55%   	 (TP = 0, FP = 0)
-        class_id = 2, name = car, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 3, name = motorbike, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 4, name = aeroplane, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 5, name = bus, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 6, name = train, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 7, name = truck, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 8, name = boat, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 9, name = traffic light, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 10, name = fire hydrant, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 11, name = stop sign, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 12, name = parking meter, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 13, name = bench, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 14, name = bird, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 15, name = cat, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 16, name = dog, ap = 5.26%   	 (TP = 0, FP = 0)
-        class_id = 17, name = horse, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 18, name = sheep, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 19, name = cow, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 20, name = elephant, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 21, name = bear, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 22, name = zebra, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 23, name = giraffe, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 24, name = backpack, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 25, name = umbrella, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 26, name = handbag, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 27, name = tie, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 28, name = suitcase, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 29, name = frisbee, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 30, name = skis, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 31, name = snowboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 32, name = sports ball, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 33, name = kite, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 34, name = baseball bat, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 35, name = baseball glove, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 36, name = skateboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 37, name = surfboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 38, name = tennis racket, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 39, name = bottle, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 40, name = wine glass, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 41, name = cup, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 42, name = fork, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 43, name = knife, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 44, name = spoon, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 45, name = bowl, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 46, name = banana, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 47, name = apple, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 48, name = sandwich, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 49, name = orange, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 50, name = broccoli, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 51, name = carrot, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 52, name = hot dog, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 53, name = pizza, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 54, name = donut, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 55, name = cake, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 56, name = chair, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 57, name = sofa, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 58, name = pottedplant, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 59, name = bed, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 60, name = diningtable, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 61, name = toilet, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 62, name = tvmonitor, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 63, name = laptop, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 64, name = mouse, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 65, name = remote, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 66, name = keyboard, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 67, name = cell phone, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 68, name = microwave, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 69, name = oven, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 70, name = toaster, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 71, name = sink, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 72, name = refrigerator, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 73, name = book, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 74, name = clock, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 75, name = vase, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 76, name = scissors, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 77, name = teddy bear, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 78, name = hair drier, ap = 0.00%   	 (TP = 0, FP = 0)
-        class_id = 79, name = toothbrush, ap = 0.00%   	 (TP = 0, FP = 0)
-
-        for conf_thresh = 0.25, precision = -nan, recall = 0.00, F1-score = -nan
-        for conf_thresh = 0.25, TP = 0, FP = 0, FN = 4, average IoU = 0.00 %
-
-        IoU threshold = 50 %, used Area-Under-Curve for each unique Recall
-
-        mean average precision (mAP) = 0.049043, or 4.90 % (2 classes)
-        Total Detection Time: 83 Seconds
-
-        Set -points flag:
-        `-points 101` for MS COCO
-        `-points 11` for PascalVOC 2007 (uncomment `difficult` in voc.data)
-        `-points 0` (AUC) for ImageNet, PascalVOC 2010-2012, your custom dataset
-
-        Scale = 23
-        Building project...
-        GPU isn't used 
-        OpenCV isn't used - data augmentation will be slow 
-        mini_batch = 1, batch = 1, time_steps = 1, train = 0 
-        layer   filters  size/strd(dil)      input                output
-        0 conv     16       3 x 3/ 1    416 x 416 x   3 ->  416 x 416 x  16 0.150 BF
-        1 max                2x 2/ 2    416 x 416 x  16 ->  208 x 208 x  16 0.003 BF
-        2 conv     32       3 x 3/ 1    208 x 208 x  16 ->  208 x 208 x  32 0.399 BF
-        3 max                2x 2/ 2    208 x 208 x  32 ->  104 x 104 x  32 0.001 BF
-        4 conv     64       3 x 3/ 1    104 x 104 x  32 ->  104 x 104 x  64 0.399 BF
-        5 max                2x 2/ 2    104 x 104 x  64 ->   52 x  52 x  64 0.001 BF
-        6 conv    128       3 x 3/ 1     52 x  52 x  64 ->   52 x  52 x 128 0.399 BF
-        7 max                2x 2/ 2     52 x  52 x 128 ->   26 x  26 x 128 0.000 BF
-        8 conv    256       3 x 3/ 1     26 x  26 x 128 ->   26 x  26 x 256 0.399 BF
-        9 max                2x 2/ 2     26 x  26 x 256 ->   13 x  13 x 256 0.000 BF
-        10 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
-        11 max                2x 2/ 1     13 x  13 x 512 ->   13 x  13 x 512 0.000 BF
-        12 conv   1024       3 x 3/ 1     13 x  13 x 512 ->   13 x  13 x1024 1.595 BF
-        13 conv    256       1 x 1/ 1     13 x  13 x1024 ->   13 x  13 x 256 0.089 BF
-        14 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
-        15 conv    255       1 x 1/ 1     13 x  13 x 512 ->   13 x  13 x 255 0.044 BF
-        16 yolo
-        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
-        17 route  13 		                           ->   13 x  13 x 256 
-        18 conv    128       1 x 1/ 1     13 x  13 x 256 ->   13 x  13 x 128 0.011 BF
-        19 upsample                 2x    13 x  13 x 128 ->   26 x  26 x 128
-        20 route  19 8 	                           ->   26 x  26 x 384 
-        21 conv    256       3 x 3/ 1     26 x  26 x 384 ->   26 x  26 x 256 1.196 BF
-        22 conv    255       1 x 1/ 1     26 x  26 x 256 ->   26 x  26 x 255 0.088 BF
-        23 yolo
-        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
-        Total BFLOPS 5.571 
-        avg_outputs = 341534 
-
-        calculation mAP (mean average precision)...
-        Detection layer: 16 - type = 28 
-        Detection layer: 23 - type = 28 
-        1
-        detections_count = 154639, unique_truth_count = 4  
-        class_id = 0, name = person, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 1, name = bicycle, ap = 0.05%   	 (TP = 0, FP = 0) 
-        class_id = 2, name = car, ap = 0.06%   	 (TP = 0, FP = 0) 
-        class_id = 3, name = motorbike, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 4, name = aeroplane, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 5, name = bus, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 6, name = train, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 7, name = truck, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 8, name = boat, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 9, name = traffic light, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 10, name = fire hydrant, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 11, name = stop sign, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 12, name = parking meter, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 13, name = bench, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 14, name = bird, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 15, name = cat, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 16, name = dog, ap = 0.06%   	 (TP = 0, FP = 0) 
-        class_id = 17, name = horse, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 18, name = sheep, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 19, name = cow, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 20, name = elephant, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 21, name = bear, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 22, name = zebra, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 23, name = giraffe, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 24, name = backpack, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 25, name = umbrella, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 26, name = handbag, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 27, name = tie, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 28, name = suitcase, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 29, name = frisbee, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 30, name = skis, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 31, name = snowboard, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 32, name = sports ball, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 33, name = kite, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 34, name = baseball bat, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 35, name = baseball glove, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 36, name = skateboard, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 37, name = surfboard, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 38, name = tennis racket, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 39, name = bottle, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 40, name = wine glass, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 41, name = cup, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 42, name = fork, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 43, name = knife, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 44, name = spoon, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 45, name = bowl, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 46, name = banana, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 47, name = apple, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 48, name = sandwich, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 49, name = orange, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 50, name = broccoli, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 51, name = carrot, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 52, name = hot dog, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 53, name = pizza, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 54, name = donut, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 55, name = cake, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 56, name = chair, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 57, name = sofa, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 58, name = pottedplant, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 59, name = bed, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 60, name = diningtable, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 61, name = toilet, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 62, name = tvmonitor, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 63, name = laptop, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 64, name = mouse, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 65, name = remote, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 66, name = keyboard, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 67, name = cell phone, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 68, name = microwave, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 69, name = oven, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 70, name = toaster, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 71, name = sink, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 72, name = refrigerator, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 73, name = book, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 74, name = clock, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 75, name = vase, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 76, name = scissors, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 77, name = teddy bear, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 78, name = hair drier, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 79, name = toothbrush, ap = 0.00%   	 (TP = 0, FP = 0) 
-
-        for conf_thresh = 0.25, precision = -nan, recall = 0.00, F1-score = -nan 
-        for conf_thresh = 0.25, TP = 0, FP = 0, FN = 4, average IoU = 0.00 % 
-
-        IoU threshold = 50 %, used Area-Under-Curve for each unique Recall 
-
-        mean average precision (mAP) = 0.000555, or 0.06 % (3 classes)
-        Total Detection Time: 89 Seconds
-
-        Set -points flag:
-        `-points 101` for MS COCO 
-        `-points 11` for PascalVOC 2007 (uncomment `difficult` in voc.data) 
-        `-points 0` (AUC) for ImageNet, PascalVOC 2010-2012, your custom dataset
-        ./run: line 14: yolov3-tiny.weights: command not found
-        Scale = 24
-        Building project...
-        GPU isn't used 
-        OpenCV isn't used - data augmentation will be slow 
-        mini_batch = 1, batch = 1, time_steps = 1, train = 0 
-        layer   filters  size/strd(dil)      input                output
-        0 conv     16       3 x 3/ 1    416 x 416 x   3 ->  416 x 416 x  16 0.150 BF
-        1 max                2x 2/ 2    416 x 416 x  16 ->  208 x 208 x  16 0.003 BF
-        2 conv     32       3 x 3/ 1    208 x 208 x  16 ->  208 x 208 x  32 0.399 BF
-        3 max                2x 2/ 2    208 x 208 x  32 ->  104 x 104 x  32 0.001 BF
-        4 conv     64       3 x 3/ 1    104 x 104 x  32 ->  104 x 104 x  64 0.399 BF
-        5 max                2x 2/ 2    104 x 104 x  64 ->   52 x  52 x  64 0.001 BF
-        6 conv    128       3 x 3/ 1     52 x  52 x  64 ->   52 x  52 x 128 0.399 BF
-        7 max                2x 2/ 2     52 x  52 x 128 ->   26 x  26 x 128 0.000 BF
-        8 conv    256       3 x 3/ 1     26 x  26 x 128 ->   26 x  26 x 256 0.399 BF
-        9 max                2x 2/ 2     26 x  26 x 256 ->   13 x  13 x 256 0.000 BF
-        10 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
-        11 max                2x 2/ 1     13 x  13 x 512 ->   13 x  13 x 512 0.000 BF
-        12 conv   1024       3 x 3/ 1     13 x  13 x 512 ->   13 x  13 x1024 1.595 BF
-        13 conv    256       1 x 1/ 1     13 x  13 x1024 ->   13 x  13 x 256 0.089 BF
-        14 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
-        15 conv    255       1 x 1/ 1     13 x  13 x 512 ->   13 x  13 x 255 0.044 BF
-        16 yolo
-        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
-        17 route  13 		                           ->   13 x  13 x 256 
-        18 conv    128       1 x 1/ 1     13 x  13 x 256 ->   13 x  13 x 128 0.011 BF
-        19 upsample                 2x    13 x  13 x 128 ->   26 x  26 x 128
-        20 route  19 8 	                           ->   26 x  26 x 384 
-        21 conv    256       3 x 3/ 1     26 x  26 x 384 ->   26 x  26 x 256 1.196 BF
-        22 conv    255       1 x 1/ 1     26 x  26 x 256 ->   26 x  26 x 255 0.088 BF
-        23 yolo
-        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
-        Total BFLOPS 5.571 
-        avg_outputs = 341534 
-
-        calculation mAP (mean average precision)...
-        Detection layer: 16 - type = 28 
-        Detection layer: 23 - type = 28 
-        1
-        detections_count = 154639, unique_truth_count = 4  
-        class_id = 0, name = person, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 1, name = bicycle, ap = 0.06%   	 (TP = 0, FP = 0) 
-        class_id = 2, name = car, ap = 0.06%   	 (TP = 0, FP = 0) 
-        class_id = 3, name = motorbike, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 4, name = aeroplane, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 5, name = bus, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 6, name = train, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 7, name = truck, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 8, name = boat, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 9, name = traffic light, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 10, name = fire hydrant, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 11, name = stop sign, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 12, name = parking meter, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 13, name = bench, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 14, name = bird, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 15, name = cat, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 16, name = dog, ap = 0.06%   	 (TP = 0, FP = 0) 
-        class_id = 17, name = horse, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 18, name = sheep, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 19, name = cow, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 20, name = elephant, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 21, name = bear, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 22, name = zebra, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 23, name = giraffe, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 24, name = backpack, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 25, name = umbrella, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 26, name = handbag, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 27, name = tie, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 28, name = suitcase, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 29, name = frisbee, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 30, name = skis, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 31, name = snowboard, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 32, name = sports ball, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 33, name = kite, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 34, name = baseball bat, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 35, name = baseball glove, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 36, name = skateboard, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 37, name = surfboard, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 38, name = tennis racket, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 39, name = bottle, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 40, name = wine glass, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 41, name = cup, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 42, name = fork, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 43, name = knife, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 44, name = spoon, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 45, name = bowl, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 46, name = banana, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 47, name = apple, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 48, name = sandwich, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 49, name = orange, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 50, name = broccoli, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 51, name = carrot, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 52, name = hot dog, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 53, name = pizza, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 54, name = donut, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 55, name = cake, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 56, name = chair, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 57, name = sofa, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 58, name = pottedplant, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 59, name = bed, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 60, name = diningtable, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 61, name = toilet, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 62, name = tvmonitor, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 63, name = laptop, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 64, name = mouse, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 65, name = remote, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 66, name = keyboard, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 67, name = cell phone, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 68, name = microwave, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 69, name = oven, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 70, name = toaster, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 71, name = sink, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 72, name = refrigerator, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 73, name = book, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 74, name = clock, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 75, name = vase, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 76, name = scissors, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 77, name = teddy bear, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 78, name = hair drier, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 79, name = toothbrush, ap = 0.00%   	 (TP = 0, FP = 0) 
-
-        for conf_thresh = 0.25, precision = -nan, recall = 0.00, F1-score = -nan 
-        for conf_thresh = 0.25, TP = 0, FP = 0, FN = 4, average IoU = 0.00 % 
-
-        IoU threshold = 50 %, used Area-Under-Curve for each unique Recall 
-
-        mean average precision (mAP) = 0.000572, or 0.06 % (3 classes)
-        Total Detection Time: 88 Seconds
-
-        Set -points flag:
-        `-points 101` for MS COCO 
-        `-points 11` for PascalVOC 2007 (uncomment `difficult` in voc.data) 
-        `-points 0` (AUC) for ImageNet, PascalVOC 2010-2012, your custom dataset
-        ./run: line 14: yolov3-tiny.weights: command not found
-        Scale = 25
-        Building project...
-        GPU isn't used 
-        OpenCV isn't used - data augmentation will be slow 
-        mini_batch = 1, batch = 1, time_steps = 1, train = 0 
-        layer   filters  size/strd(dil)      input                output
-        0 conv     16       3 x 3/ 1    416 x 416 x   3 ->  416 x 416 x  16 0.150 BF
-        1 max                2x 2/ 2    416 x 416 x  16 ->  208 x 208 x  16 0.003 BF
-        2 conv     32       3 x 3/ 1    208 x 208 x  16 ->  208 x 208 x  32 0.399 BF
-        3 max                2x 2/ 2    208 x 208 x  32 ->  104 x 104 x  32 0.001 BF
-        4 conv     64       3 x 3/ 1    104 x 104 x  32 ->  104 x 104 x  64 0.399 BF
-        5 max                2x 2/ 2    104 x 104 x  64 ->   52 x  52 x  64 0.001 BF
-        6 conv    128       3 x 3/ 1     52 x  52 x  64 ->   52 x  52 x 128 0.399 BF
-        7 max                2x 2/ 2     52 x  52 x 128 ->   26 x  26 x 128 0.000 BF
-        8 conv    256       3 x 3/ 1     26 x  26 x 128 ->   26 x  26 x 256 0.399 BF
-        9 max                2x 2/ 2     26 x  26 x 256 ->   13 x  13 x 256 0.000 BF
-        10 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
-        11 max                2x 2/ 1     13 x  13 x 512 ->   13 x  13 x 512 0.000 BF
-        12 conv   1024       3 x 3/ 1     13 x  13 x 512 ->   13 x  13 x1024 1.595 BF
-        13 conv    256       1 x 1/ 1     13 x  13 x1024 ->   13 x  13 x 256 0.089 BF
-        14 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
-        15 conv    255       1 x 1/ 1     13 x  13 x 512 ->   13 x  13 x 255 0.044 BF
-        16 yolo
-        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
-        17 route  13 		                           ->   13 x  13 x 256 
-        18 conv    128       1 x 1/ 1     13 x  13 x 256 ->   13 x  13 x 128 0.011 BF
-        19 upsample                 2x    13 x  13 x 128 ->   26 x  26 x 128
-        20 route  19 8 	                           ->   26 x  26 x 384 
-        21 conv    256       3 x 3/ 1     26 x  26 x 384 ->   26 x  26 x 256 1.196 BF
-        22 conv    255       1 x 1/ 1     26 x  26 x 256 ->   26 x  26 x 255 0.088 BF
-        23 yolo
-        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
-        Total BFLOPS 5.571 
-        avg_outputs = 341534 
-
-        calculation mAP (mean average precision)...
-        Detection layer: 16 - type = 28 
-        Detection layer: 23 - type = 28 
-        1
-        detections_count = 154639, unique_truth_count = 4  
-        class_id = 0, name = person, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 1, name = bicycle, ap = 0.05%   	 (TP = 0, FP = 0) 
-        class_id = 2, name = car, ap = 0.06%   	 (TP = 0, FP = 0) 
-        class_id = 3, name = motorbike, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 4, name = aeroplane, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 5, name = bus, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 6, name = train, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 7, name = truck, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 8, name = boat, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 9, name = traffic light, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 10, name = fire hydrant, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 11, name = stop sign, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 12, name = parking meter, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 13, name = bench, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 14, name = bird, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 15, name = cat, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 16, name = dog, ap = 0.05%   	 (TP = 0, FP = 0) 
-        class_id = 17, name = horse, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 18, name = sheep, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 19, name = cow, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 20, name = elephant, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 21, name = bear, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 22, name = zebra, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 23, name = giraffe, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 24, name = backpack, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 25, name = umbrella, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 26, name = handbag, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 27, name = tie, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 28, name = suitcase, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 29, name = frisbee, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 30, name = skis, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 31, name = snowboard, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 32, name = sports ball, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 33, name = kite, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 34, name = baseball bat, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 35, name = baseball glove, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 36, name = skateboard, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 37, name = surfboard, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 38, name = tennis racket, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 39, name = bottle, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 40, name = wine glass, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 41, name = cup, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 42, name = fork, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 43, name = knife, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 44, name = spoon, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 45, name = bowl, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 46, name = banana, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 47, name = apple, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 48, name = sandwich, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 49, name = orange, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 50, name = broccoli, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 51, name = carrot, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 52, name = hot dog, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 53, name = pizza, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 54, name = donut, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 55, name = cake, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 56, name = chair, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 57, name = sofa, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 58, name = pottedplant, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 59, name = bed, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 60, name = diningtable, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 61, name = toilet, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 62, name = tvmonitor, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 63, name = laptop, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 64, name = mouse, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 65, name = remote, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 66, name = keyboard, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 67, name = cell phone, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 68, name = microwave, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 69, name = oven, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 70, name = toaster, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 71, name = sink, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 72, name = refrigerator, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 73, name = book, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 74, name = clock, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 75, name = vase, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 76, name = scissors, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 77, name = teddy bear, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 78, name = hair drier, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 79, name = toothbrush, ap = 0.00%   	 (TP = 0, FP = 0) 
-
-        for conf_thresh = 0.25, precision = -nan, recall = 0.00, F1-score = -nan 
-        for conf_thresh = 0.25, TP = 0, FP = 0, FN = 4, average IoU = 0.00 % 
-
-        IoU threshold = 50 %, used Area-Under-Curve for each unique Recall 
-
-        mean average precision (mAP) = 0.000543, or 0.05 % (3 classes)
-        Total Detection Time: 84 Seconds
-
-        Set -points flag:
-        `-points 101` for MS COCO 
-        `-points 11` for PascalVOC 2007 (uncomment `difficult` in voc.data) 
-        `-points 0` (AUC) for ImageNet, PascalVOC 2010-2012, your custom dataset
-        ./run: line 14: yolov3-tiny.weights: command not found
-        Scale = 26
-        Building project...
-        GPU isn't used 
-        OpenCV isn't used - data augmentation will be slow 
-        mini_batch = 1, batch = 1, time_steps = 1, train = 0 
-        layer   filters  size/strd(dil)      input                output
-        0 conv     16       3 x 3/ 1    416 x 416 x   3 ->  416 x 416 x  16 0.150 BF
-        1 max                2x 2/ 2    416 x 416 x  16 ->  208 x 208 x  16 0.003 BF
-        2 conv     32       3 x 3/ 1    208 x 208 x  16 ->  208 x 208 x  32 0.399 BF
-        3 max                2x 2/ 2    208 x 208 x  32 ->  104 x 104 x  32 0.001 BF
-        4 conv     64       3 x 3/ 1    104 x 104 x  32 ->  104 x 104 x  64 0.399 BF
-        5 max                2x 2/ 2    104 x 104 x  64 ->   52 x  52 x  64 0.001 BF
-        6 conv    128       3 x 3/ 1     52 x  52 x  64 ->   52 x  52 x 128 0.399 BF
-        7 max                2x 2/ 2     52 x  52 x 128 ->   26 x  26 x 128 0.000 BF
-        8 conv    256       3 x 3/ 1     26 x  26 x 128 ->   26 x  26 x 256 0.399 BF
-        9 max                2x 2/ 2     26 x  26 x 256 ->   13 x  13 x 256 0.000 BF
-        10 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
-        11 max                2x 2/ 1     13 x  13 x 512 ->   13 x  13 x 512 0.000 BF
-        12 conv   1024       3 x 3/ 1     13 x  13 x 512 ->   13 x  13 x1024 1.595 BF
-        13 conv    256       1 x 1/ 1     13 x  13 x1024 ->   13 x  13 x 256 0.089 BF
-        14 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
-        15 conv    255       1 x 1/ 1     13 x  13 x 512 ->   13 x  13 x 255 0.044 BF
-        16 yolo
-        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
-        17 route  13 		                           ->   13 x  13 x 256 
-        18 conv    128       1 x 1/ 1     13 x  13 x 256 ->   13 x  13 x 128 0.011 BF
-        19 upsample                 2x    13 x  13 x 128 ->   26 x  26 x 128
-        20 route  19 8 	                           ->   26 x  26 x 384 
-        21 conv    256       3 x 3/ 1     26 x  26 x 384 ->   26 x  26 x 256 1.196 BF
-        22 conv    255       1 x 1/ 1     26 x  26 x 256 ->   26 x  26 x 255 0.088 BF
-        23 yolo
-        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
-        Total BFLOPS 5.571 
-        avg_outputs = 341534 
-
-        calculation mAP (mean average precision)...
-        Detection layer: 16 - type = 28 
-        Detection layer: 23 - type = 28 
-        1
-
-        detections_count = 154639, unique_truth_count = 4  
-        class_id = 0, name = person, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 1, name = bicycle, ap = 0.05%   	 (TP = 0, FP = 0) 
-        class_id = 2, name = car, ap = 0.06%   	 (TP = 0, FP = 0) 
-        class_id = 3, name = motorbike, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 4, name = aeroplane, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 5, name = bus, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 6, name = train, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 7, name = truck, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 8, name = boat, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 9, name = traffic light, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 10, name = fire hydrant, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 11, name = stop sign, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 12, name = parking meter, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 13, name = bench, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 14, name = bird, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 15, name = cat, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 16, name = dog, ap = 0.05%   	 (TP = 0, FP = 0) 
-        class_id = 17, name = horse, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 18, name = sheep, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 19, name = cow, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 20, name = elephant, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 21, name = bear, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 22, name = zebra, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 23, name = giraffe, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 24, name = backpack, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 25, name = umbrella, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 26, name = handbag, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 27, name = tie, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 28, name = suitcase, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 29, name = frisbee, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 30, name = skis, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 31, name = snowboard, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 32, name = sports ball, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 33, name = kite, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 34, name = baseball bat, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 35, name = baseball glove, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 36, name = skateboard, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 37, name = surfboard, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 38, name = tennis racket, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 39, name = bottle, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 40, name = wine glass, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 41, name = cup, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 42, name = fork, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 43, name = knife, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 44, name = spoon, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 45, name = bowl, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 46, name = banana, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 47, name = apple, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 48, name = sandwich, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 49, name = orange, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 50, name = broccoli, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 51, name = carrot, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 52, name = hot dog, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 53, name = pizza, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 54, name = donut, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 55, name = cake, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 56, name = chair, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 57, name = sofa, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 58, name = pottedplant, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 59, name = bed, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 60, name = diningtable, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 61, name = toilet, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 62, name = tvmonitor, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 63, name = laptop, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 64, name = mouse, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 65, name = remote, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 66, name = keyboard, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 67, name = cell phone, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 68, name = microwave, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 69, name = oven, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 70, name = toaster, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 71, name = sink, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 72, name = refrigerator, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 73, name = book, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 74, name = clock, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 75, name = vase, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 76, name = scissors, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 77, name = teddy bear, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 78, name = hair drier, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 79, name = toothbrush, ap = 0.00%   	 (TP = 0, FP = 0) 
-
-        for conf_thresh = 0.25, precision = -nan, recall = 0.00, F1-score = -nan 
-        for conf_thresh = 0.25, TP = 0, FP = 0, FN = 4, average IoU = 0.00 % 
-
-        IoU threshold = 50 %, used Area-Under-Curve for each unique Recall 
-
-        mean average precision (mAP) = 0.000544, or 0.05 % (3 classes)
-        Total Detection Time: 86 Seconds
-
-        Set -points flag:
-        `-points 101` for MS COCO 
-        `-points 11` for PascalVOC 2007 (uncomment `difficult` in voc.data) 
-        `-points 0` (AUC) for ImageNet, PascalVOC 2010-2012, your custom dataset
-        ./run: line 14: yolov3-tiny.weights: command not found
-        Scale = 27
-        Building project...
-        GPU isn't used 
-        OpenCV isn't used - data augmentation will be slow 
-        mini_batch = 1, batch = 1, time_steps = 1, train = 0 
-        layer   filters  size/strd(dil)      input                output
-        0 conv     16       3 x 3/ 1    416 x 416 x   3 ->  416 x 416 x  16 0.150 BF
-        1 max                2x 2/ 2    416 x 416 x  16 ->  208 x 208 x  16 0.003 BF
-        2 conv     32       3 x 3/ 1    208 x 208 x  16 ->  208 x 208 x  32 0.399 BF
-        3 max                2x 2/ 2    208 x 208 x  32 ->  104 x 104 x  32 0.001 BF
-        4 conv     64       3 x 3/ 1    104 x 104 x  32 ->  104 x 104 x  64 0.399 BF
-        5 max                2x 2/ 2    104 x 104 x  64 ->   52 x  52 x  64 0.001 BF
-        6 conv    128       3 x 3/ 1     52 x  52 x  64 ->   52 x  52 x 128 0.399 BF
-        7 max                2x 2/ 2     52 x  52 x 128 ->   26 x  26 x 128 0.000 BF
-        8 conv    256       3 x 3/ 1     26 x  26 x 128 ->   26 x  26 x 256 0.399 BF
-        9 max                2x 2/ 2     26 x  26 x 256 ->   13 x  13 x 256 0.000 BF
-        10 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
-        11 max                2x 2/ 1     13 x  13 x 512 ->   13 x  13 x 512 0.000 BF
-        12 conv   1024       3 x 3/ 1     13 x  13 x 512 ->   13 x  13 x1024 1.595 BF
-        13 conv    256       1 x 1/ 1     13 x  13 x1024 ->   13 x  13 x 256 0.089 BF
-        14 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
-        15 conv    255       1 x 1/ 1     13 x  13 x 512 ->   13 x  13 x 255 0.044 BF
-        16 yolo
-        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
-        17 route  13 		                           ->   13 x  13 x 256 
-        18 conv    128       1 x 1/ 1     13 x  13 x 256 ->   13 x  13 x 128 0.011 BF
-        19 upsample                 2x    13 x  13 x 128 ->   26 x  26 x 128
-        20 route  19 8 	                           ->   26 x  26 x 384 
-        21 conv    256       3 x 3/ 1     26 x  26 x 384 ->   26 x  26 x 256 1.196 BF
-        22 conv    255       1 x 1/ 1     26 x  26 x 256 ->   26 x  26 x 255 0.088 BF
-        23 yolo
-        [yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
-        Total BFLOPS 5.571 
-        avg_outputs = 341534 
-
-        calculation mAP (mean average precision)...
-        Detection layer: 16 - type = 28 
-        Detection layer: 23 - type = 28 
-        1
-        detections_count = 154639, unique_truth_count = 4  
-        class_id = 0, name = person, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 1, name = bicycle, ap = 0.80%   	 (TP = 0, FP = 0) 
-        class_id = 2, name = car, ap = 1.85%   	 (TP = 0, FP = 0) 
-        class_id = 3, name = motorbike, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 4, name = aeroplane, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 5, name = bus, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 6, name = train, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 7, name = truck, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 8, name = boat, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 9, name = traffic light, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 10, name = fire hydrant, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 11, name = stop sign, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 12, name = parking meter, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 13, name = bench, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 14, name = bird, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 15, name = cat, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 16, name = dog, ap = 0.71%   	 (TP = 0, FP = 0) 
-        class_id = 17, name = horse, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 18, name = sheep, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 19, name = cow, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 20, name = elephant, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 21, name = bear, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 22, name = zebra, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 23, name = giraffe, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 24, name = backpack, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 25, name = umbrella, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 26, name = handbag, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 27, name = tie, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 28, name = suitcase, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 29, name = frisbee, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 30, name = skis, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 31, name = snowboard, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 32, name = sports ball, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 33, name = kite, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 34, name = baseball bat, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 35, name = baseball glove, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 36, name = skateboard, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 37, name = surfboard, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 38, name = tennis racket, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 39, name = bottle, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 40, name = wine glass, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 41, name = cup, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 42, name = fork, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 43, name = knife, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 44, name = spoon, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 45, name = bowl, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 46, name = banana, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 47, name = apple, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 48, name = sandwich, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 49, name = orange, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 50, name = broccoli, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 51, name = carrot, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 52, name = hot dog, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 53, name = pizza, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 54, name = donut, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 55, name = cake, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 56, name = chair, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 57, name = sofa, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 58, name = pottedplant, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 59, name = bed, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 60, name = diningtable, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 61, name = toilet, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 62, name = tvmonitor, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 63, name = laptop, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 64, name = mouse, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 65, name = remote, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 66, name = keyboard, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 67, name = cell phone, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 68, name = microwave, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 69, name = oven, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 70, name = toaster, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 71, name = sink, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 72, name = refrigerator, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 73, name = book, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 74, name = clock, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 75, name = vase, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 76, name = scissors, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 77, name = teddy bear, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 78, name = hair drier, ap = 0.00%   	 (TP = 0, FP = 0) 
-        class_id = 79, name = toothbrush, ap = 0.00%   	 (TP = 0, FP = 0) 
-
-        for conf_thresh = 0.25, precision = -nan, recall = 0.00, F1-score = -nan 
-        for conf_thresh = 0.25, TP = 0, FP = 0, FN = 4, average IoU = 0.00 % 
-
-        IoU threshold = 50 %, used Area-Under-Curve for each unique Recall 
-
-        mean average precision (mAP) = 0.011204, or 1.12 % (3 classes)
-        Total Detection Time: 81 Seconds
-
-        Set -points flag:
-        `-points 101` for MS COCO 
-        `-points 11` for PascalVOC 2007 (uncomment `difficult` in voc.data) 
-        `-points 0` (AUC) for ImageNet, PascalVOC 2010-2012, your custom dataset
-        ./run: line 14: yolov3-tiny.weights: command not found
+        ```c
+        mAP drops to 25% when this method is used
+        C[i*ldc + j] 
+            += (A_PART     *   (int)(B[k*ldb + j] * (1 << scale))) >> (2*scale);
+        */                                              
         ```
 
-        </p>
-        </details>
+    * In the above code, we got rid of the final floating point division, with
+    (1 << scale), by bit shifting the fixed-point number by appropriate
+    bits. We noted that there is significant loss of information. To
+    corroborate, we dumped the resultant matrix in a file cout.txt and
+    verified that many of the numbers in the result are close to zero.
+    Hence, it is not appropriate to get rid of the final division. 
+
+    * This also has the consequense in terms of the performance upperbound for
+    our fixed point implementation. In other words, we may not be able to get
+    our fixed-point performance better than floating point performance.
+
+##### Order of the for-loops
+* We also experimented on the order of loops within gemm_nn code. We
+ discovered that there is not much difference in the performance. Here are
+ our reasons:
+
+ 1. Within gemm_nn, M=1. Hence, it is sensible to keep the out loop
+ undisturbed. When tried to send the complete matrix to gemm_nn, we did not
+ observe any improvement because the row and column sizes are big enough that
+ it is likely that cach would reuse the repated data present in the channels.
+ 2. There is not much difference in by changing the order of for-loops of K,
+ N as they are already present in a cache friendly manner. 
+  * We can note that we use the same filter weight for all the rows in the
+   tranformed input channel. This is already in a cache friendly manner.
+   However, to this end, we did not implement any tiling or blocking
+   algorithms for matrix multiplications.
+
+#### Difference in programming language (c/cpp)
+* There is no big difference between c/cpp in terms of performance. Both of them are taking 20 s. Their logs:
+    * C:    perf_results/darknet.perf.withscale_int_round.test.172737.18092021
+    * Cpp:  perf_results/darknet.perf.withscale_int_round.test.165858.18092021
+ 
+
+After enabling openmp, we can notice that most of time is spent in omp
+  allocation, deallocation functions. log =
+  "perf_results/darknet.perf.arm.fpx.map.222848.18092021"
+
+    * I can think of compiling gemm.c seperately and then linking it. Not sure
+      how much effort does that take.
+    * Though it is not explicit, it is likely that openmp's time of 13 ms is
+      still in optimizing our gemm_nn function. Thus, it is not meaningful to
+      compile only gemm.c with openmp. Owing to the lack of time, we make that
+      assumption and go further.
+
+#### Timing results
+* On the board, here are the timing results
+    * For our fixedpoint conversion: 20.94 s
+    * For the native floating point: 10.49 s
+    
+    * With int type rounding time taken by gemm is 1.97 sec. 
+        log = perf_results/darknet.perf.withscale_int_round.test.141337.18092021
+    * floating point gemm takes, 1.95 seconds 
+
+* Does scale matter?
+  * The difficulty in answering this is to measure the difference in
+    performance. 
+  * Unfortunately, for all other scales, the mAP is too low. Also, FNs are
+    high for small scale.
+
+* Let us start with scale = 13:
+    * We don't actually need our custom \__roundup function. I am directly
+      type casting to int types.
+    * mAP close to 100%. log = "log/map.withscale_cnative_round.133032.18092021" 
+    * Time is around 2 seconds. Now, only gemm_nn is the bottleneck.
+        log = "log/map.withscale_cnative_round.133032.18092021"
+
+* For scale = 13, 
+    * the mAP came to be 100%. log = "log/map.fx.124030.18092021"
+    * Time taken = 13s; log =  "perf_results/darknet.perf.fx.124248.18092021"
+
+* If the precision is not lost, we can aswell represent the data in char, 
+    * as we know the max and min values to be: max = 76.966393, min = -17.589060 
+    * I think it is more important to have a look at the SNR values of the
+     calculations instead of mAP to decide on the scale.
+
+##### What we did not analyze
+1. Tiling/blocking techniques in matrix multiplication.
+2. Two differnt scales, one each for channels and filters.  
+3. What happens when we convert the numbers to ints even before sending to gemm
+
+
+<!--
+* With c's native round function:
+    * gemm_nn still shows the same time. However, time taken round disappers.
+    * Total time ~= 10 sec. log = "perf_results/darknet.perf.cnative_round.011654.18092021"
+    * mAP:  mean average precision (mAP) = 0.037500, or 3.75 % (2 classes)
+    * log = "log/map.cnative_round.011634.18092021"
+-->
+<!--
+* gprof results for scale = 23 is 
+    * time = 17 seconds. log = 'perf_results/darknet.perf.scale_23.234744.17092021'
+    * for floating, time = 1.12 seconds. log = 'perf_results/darknet.perf.fpx.000556.18092021'
+* We fix scale = 23 for performance analysis.
+-->
 
-* For a graceful shutdown, please use the fillowing command
-    ```bash
-    sudo halt
-    ```
 
-## (neural networks for object detection)
-
-Paper YOLO v4: https://arxiv.org/abs/2004.10934
-
-Paper Scaled YOLO v4: * **[CVPR 2021](https://openaccess.thecvf.com/content/CVPR2021/html/Wang_Scaled-YOLOv4_Scaling_Cross_Stage_Partial_Network_CVPR_2021_paper.html)**: use to reproduce results: [ScaledYOLOv4](https://github.com/WongKinYiu/ScaledYOLOv4)
-
-More details in articles on medium:
-
-- [Scaled_YOLOv4](https://alexeyab84.medium.com/scaled-yolo-v4-is-the-best-neural-network-for-object-detection-on-ms-coco-dataset-39dfa22fa982?source=friends_link&sk=c8553bfed861b1a7932f739d26f487c8)
-- [YOLOv4](https://medium.com/@alexeyab84/yolov4-the-most-accurate-real-time-neural-network-on-ms-coco-dataset-73adfd3602fe?source=friends_link&sk=6039748846bbcf1d960c3061542591d7)
-
-Manual: https://github.com/AlexeyAB/darknet/wiki
-
-Discussion:
-
-- [Reddit](https://www.reddit.com/r/MachineLearning/comments/gydxzd/p_yolov4_the_most_accurate_realtime_neural/)
-- [Google-groups](https://groups.google.com/forum/#!forum/darknet)
-- [Discord](https://discord.gg/zSq8rtW)
-
-About Darknet framework: http://pjreddie.com/darknet/
-
-[![Darknet Continuous Integration](https://github.com/AlexeyAB/darknet/workflows/Darknet%20Continuous%20Integration/badge.svg)](https://github.com/AlexeyAB/darknet/actions?query=workflow%3A%22Darknet+Continuous+Integration%22)
-[![CircleCI](https://circleci.com/gh/AlexeyAB/darknet.svg?style=svg)](https://circleci.com/gh/AlexeyAB/darknet)
-[![TravisCI](https://travis-ci.org/AlexeyAB/darknet.svg?branch=master)](https://travis-ci.org/AlexeyAB/darknet)
-[![Contributors](https://img.shields.io/github/contributors/AlexeyAB/Darknet.svg)](https://github.com/AlexeyAB/darknet/graphs/contributors)
-[![License: Unlicense](https://img.shields.io/badge/license-Unlicense-blue.svg)](https://github.com/AlexeyAB/darknet/blob/master/LICENSE)
-[![DOI](https://zenodo.org/badge/75388965.svg)](https://zenodo.org/badge/latestdoi/75388965)
-[![arxiv.org](http://img.shields.io/badge/cs.CV-arXiv%3A2004.10934-B31B1B.svg)](https://arxiv.org/abs/2004.10934)
-[![arxiv.org](http://img.shields.io/badge/cs.CV-arXiv%3A2011.08036-B31B1B.svg)](https://arxiv.org/abs/2011.08036)
-[![colab](https://user-images.githubusercontent.com/4096485/86174089-b2709f80-bb29-11ea-9faf-3d8dc668a1a5.png)](https://colab.research.google.com/drive/12QusaaRj_lUwCGDvQNfICpa7kA7_a2dE)
-[![colab](https://user-images.githubusercontent.com/4096485/86174097-b56b9000-bb29-11ea-9240-c17f6bacfc34.png)](https://colab.research.google.com/drive/1_GdoqCJWXsChrOiY8sZMr_zbr_fH-0Fg)
-
-- [YOLOv4 model zoo](https://github.com/AlexeyAB/darknet/wiki/YOLOv4-model-zoo)
-- [Requirements (and how to install dependencies)](#requirements-for-windows-linux-and-macos)
-- [Pre-trained models](#pre-trained-models)
-- [FAQ - frequently asked questions](https://github.com/AlexeyAB/darknet/wiki/FAQ---frequently-asked-questions)
-- [Explanations in issues](https://github.com/AlexeyAB/darknet/issues?q=is%3Aopen+is%3Aissue+label%3AExplanations)
-- [Yolo v4 in other frameworks (TensorRT, TensorFlow, PyTorch, OpenVINO, OpenCV-dnn, TVM,...)](#yolo-v4-in-other-frameworks)
-- [Datasets](#datasets)
-
-- [Yolo v4, v3 and v2 for Windows and Linux](#yolo-v4-v3-and-v2-for-windows-and-linux)
-  - [(neural networks for object detection)](#neural-networks-for-object-detection)
-    - [GeForce RTX 2080 Ti](#geforce-rtx-2080-ti)
-      - [Youtube video of results](#youtube-video-of-results)
-      - [How to evaluate AP of YOLOv4 on the MS COCO evaluation server](#how-to-evaluate-ap-of-yolov4-on-the-ms-coco-evaluation-server)
-      - [How to evaluate FPS of YOLOv4 on GPU](#how-to-evaluate-fps-of-yolov4-on-gpu)
-      - [Pre-trained models](#pre-trained-models)
-    - [Requirements for Windows, Linux and macOS](#requirements-for-windows-linux-and-macos)
-    - [Yolo v4 in other frameworks](#yolo-v4-in-other-frameworks)
-      - [Datasets](#datasets)
-    - [Improvements in this repository](#improvements-in-this-repository)
-      - [How to use on the command line](#how-to-use-on-the-command-line)
-        - [For using network video-camera mjpeg-stream with any Android smartphone](#for-using-network-video-camera-mjpeg-stream-with-any-android-smartphone)
-    - [How to compile on Linux/macOS (using `CMake`)](#how-to-compile-on-linuxmacos-using-cmake)
-    - [Using also PowerShell](#using-also-powershell)
-    - [How to compile on Linux (using `make`)](#how-to-compile-on-linux-using-make)
-    - [How to compile on Windows (using `CMake`)](#how-to-compile-on-windows-using-cmake)
-    - [How to compile on Windows (using `vcpkg`)](#how-to-compile-on-windows-using-vcpkg)
-  - [How to train with multi-GPU](#how-to-train-with-multi-gpu)
-  - [How to train (to detect your custom objects)](#how-to-train-to-detect-your-custom-objects)
-    - [How to train tiny-yolo (to detect your custom objects)](#how-to-train-tiny-yolo-to-detect-your-custom-objects)
-  - [When should I stop training](#when-should-i-stop-training)
-    - [Custom object detection](#custom-object-detection)
-  - [How to improve object detection](#how-to-improve-object-detection)
-  - [How to mark bounded boxes of objects and create annotation files](#how-to-mark-bounded-boxes-of-objects-and-create-annotation-files)
-  - [How to use Yolo as DLL and SO libraries](#how-to-use-yolo-as-dll-and-so-libraries)
-- [Citation](#citation)
-
-![Darknet Logo](http://pjreddie.com/media/files/darknet-black-small.png)
-
-![scaled_yolov4](https://user-images.githubusercontent.com/4096485/112776361-281d8380-9048-11eb-8083-8728b12dcd55.png) AP50:95 - FPS (Tesla V100) Paper: https://arxiv.org/abs/2011.08036
-
-----
-
-![modern_gpus](https://user-images.githubusercontent.com/4096485/82835867-f1c62380-9ecd-11ea-9134-1598ed2abc4b.png) AP50:95 / AP50 - FPS (Tesla V100) Paper: https://arxiv.org/abs/2004.10934
-
-tkDNN-TensorRT accelerates YOLOv4 **~2x** times for batch=1 and **3x-4x** times for batch=4.
-
-- tkDNN: https://github.com/ceccocats/tkDNN
-- OpenCV: https://gist.github.com/YashasSamaga/48bdb167303e10f4d07b754888ddbdcf
-
-### GeForce RTX 2080 Ti
-
-| Network Size               | Darknet, FPS (avg) | tkDNN TensorRT FP32, FPS | tkDNN TensorRT FP16, FPS | OpenCV FP16, FPS | tkDNN TensorRT FP16 batch=4, FPS | OpenCV FP16 batch=4, FPS | tkDNN Speedup |
-|:--------------------------:|:------------------:|-------------------------:|-------------------------:|-----------------:|---------------------------------:|-------------------------:|--------------:|
-|320                         | 100                | 116                      | **202**                  | 183              | 423                              | **430**                  | **4.3x**      |
-|416                         | 82                 | 103                      | **162**                  | 159              | 284                              | **294**                  | **3.6x**      |
-|512                         | 69                 | 91                       | 134                      | **138**          | 206                              | **216**                  | **3.1x**      |
-|608                         | 53                 | 62                       | 103                      | **115**          | 150                              | **150**                  | **2.8x**      |
-|Tiny 416                    | 443                | 609                      | **790**                  | 773              | **1774**                         | 1353                     | **3.5x**      |
-|Tiny 416 CPU Core i7 7700HQ | 3.4                | -                        | -                        | 42               | -                                | 39                       | **12x**       |
-
-- Yolo v4 Full comparison: [map_fps](https://user-images.githubusercontent.com/4096485/80283279-0e303e00-871f-11ea-814c-870967d77fd1.png)
-- Yolo v4 tiny comparison: [tiny_fps](https://user-images.githubusercontent.com/4096485/85734112-6e366700-b705-11ea-95d1-fcba0de76d72.png)
-- CSPNet: [paper](https://arxiv.org/abs/1911.11929) and [map_fps](https://user-images.githubusercontent.com/4096485/71702416-6645dc00-2de0-11ea-8d65-de7d4b604021.png) comparison: https://github.com/WongKinYiu/CrossStagePartialNetworks
-- Yolo v3 on MS COCO: [Speed / Accuracy (mAP@0.5) chart](https://user-images.githubusercontent.com/4096485/52151356-e5d4a380-2683-11e9-9d7d-ac7bc192c477.jpg)
-- Yolo v3 on MS COCO (Yolo v3 vs RetinaNet) - Figure 3: https://arxiv.org/pdf/1804.02767v1.pdf
-- Yolo v2 on Pascal VOC 2007: https://hsto.org/files/a24/21e/068/a2421e0689fb43f08584de9d44c2215f.jpg
-- Yolo v2 on Pascal VOC 2012 (comp4): https://hsto.org/files/3a6/fdf/b53/3a6fdfb533f34cee9b52bdd9bb0b19d9.jpg
-
-#### Youtube video of results
-
-| [![Yolo v4](https://user-images.githubusercontent.com/4096485/101360000-1a33cf00-38ae-11eb-9e5e-b29c5fb0afbe.png)](https://youtu.be/1_SiUOYUoOI "Yolo v4") |  [![Scaled Yolo v4](https://user-images.githubusercontent.com/4096485/101359389-43a02b00-38ad-11eb-866c-f813e96bf61a.png)](https://youtu.be/YDFf-TqJOFE "Scaled Yolo v4") |
-|---|---|
-
-Others: https://www.youtube.com/user/pjreddie/videos
-
-#### How to evaluate AP of YOLOv4 on the MS COCO evaluation server
-
-1. Download and unzip test-dev2017 dataset from MS COCO server: http://images.cocodataset.org/zips/test2017.zip
-2. Download list of images for Detection tasks and replace the paths with yours: https://raw.githubusercontent.com/AlexeyAB/darknet/master/scripts/testdev2017.txt
-3. Download `yolov4.weights` file 245 MB: [yolov4.weights](https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v3_optimal/yolov4.weights) (Google-drive mirror [yolov4.weights](https://drive.google.com/open?id=1cewMfusmPjYWbrnuJRuKhPMwRe_b9PaT) )
-4. Content of the file `cfg/coco.data` should be
-
-```ini
-classes= 80
-train  = <replace with your path>/trainvalno5k.txt
-valid = <replace with your path>/testdev2017.txt
-names = data/coco.names
-backup = backup
-eval=coco
-```
-
-5. Create `/results/` folder near with `./darknet` executable file
-6. Run validation: `./darknet detector valid cfg/coco.data cfg/yolov4.cfg yolov4.weights`
-7. Rename the file  `/results/coco_results.json` to `detections_test-dev2017_yolov4_results.json` and compress it to `detections_test-dev2017_yolov4_results.zip`
-8. Submit file `detections_test-dev2017_yolov4_results.zip` to the MS COCO evaluation server for the `test-dev2019 (bbox)`
-
-#### How to evaluate FPS of YOLOv4 on GPU
-
-1. Compile Darknet with `GPU=1 CUDNN=1 CUDNN_HALF=1 OPENCV=1` in the `Makefile`
-2. Download `yolov4.weights` file 245 MB: [yolov4.weights](https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v3_optimal/yolov4.weights) (Google-drive mirror [yolov4.weights](https://drive.google.com/open?id=1cewMfusmPjYWbrnuJRuKhPMwRe_b9PaT) )
-3. Get any .avi/.mp4 video file (preferably not more than 1920x1080 to avoid bottlenecks in CPU performance)
-4. Run one of two commands and look at the AVG FPS:
-
-- include video_capturing + NMS + drawing_bboxes:
-    `./darknet detector demo cfg/coco.data cfg/yolov4.cfg yolov4.weights test.mp4 -dont_show -ext_output`
-- exclude video_capturing + NMS + drawing_bboxes:
-    `./darknet detector demo cfg/coco.data cfg/yolov4.cfg yolov4.weights test.mp4 -benchmark`
-
-#### Pre-trained models
-
-There are weights-file for different cfg-files (trained for MS COCO dataset):
-
-FPS on RTX 2070 (R) and Tesla V100 (V):
-
-- [yolov4-p6.cfg](https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4-p6.cfg) - 1280x1280 - **72.1% mAP@0.5 (54.0% AP@0.5:0.95) - 32(V) FPS** - xxx BFlops (xxx FMA) - 487 MB: [yolov4-p6.weights](https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4-p6.weights)
-  - pre-trained weights for training: https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4-p6.conv.289
-
-- [yolov4-p5.cfg](https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4-p5.cfg) - 896x896 - **70.0% mAP@0.5 (51.6% AP@0.5:0.95) - 43(V) FPS** - xxx BFlops (xxx FMA) - 271 MB: [yolov4-p5.weights](https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4-p5.weights)
-  - pre-trained weights for training: https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4-p5.conv.232
-
-- [yolov4-csp-x-swish.cfg](https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4-csp-x-swish.cfg) - 640x640 - **69.9% mAP@0.5 (51.5% AP@0.5:0.95) - 23(R) FPS / 50(V) FPS** - 221 BFlops (110 FMA) - 381 MB: [yolov4-csp-x-swish.weights](https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4-csp-x-swish.weights)
-  - pre-trained weights for training: https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4-csp-x-swish.conv.192
-
-- [yolov4-csp-swish.cfg](https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4-csp-swish.cfg) - 640x640 - **68.7% mAP@0.5 (50.0% AP@0.5:0.95) - 70(V) FPS** - 120 (60 FMA) - 202 MB: [yolov4-csp-swish.weights](https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4-csp-swish.weights)
-  - pre-trained weights for training: https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4-csp-swish.conv.164
-
-- [yolov4x-mish.cfg](https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4x-mish.cfg) - 640x640 - **68.5% mAP@0.5 (50.1% AP@0.5:0.95) - 23(R) FPS / 50(V) FPS** - 221 BFlops (110 FMA) - 381 MB: [yolov4x-mish.weights](https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4x-mish.weights)
-  - pre-trained weights for training: https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4x-mish.conv.166
-
-- [yolov4-csp.cfg](https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4-csp.cfg) - 202 MB: [yolov4-csp.weights](https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4-csp.weights) paper [Scaled Yolo v4](https://arxiv.org/abs/2011.08036)
-
-    just change `width=` and `height=` parameters in `yolov4-csp.cfg` file and use the same `yolov4-csp.weights` file for all cases:
-  - `width=640 height=640` in cfg: **67.4% mAP@0.5 (48.7% AP@0.5:0.95) - 70(V) FPS** - 120 (60 FMA) BFlops
-  - `width=512 height=512` in cfg: **64.8% mAP@0.5 (46.2% AP@0.5:0.95) - 93(V) FPS** - 77 (39 FMA) BFlops
-  - pre-trained weights for training: https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4-csp.conv.142
-
-- [yolov4.cfg](https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4.cfg) - 245 MB: [yolov4.weights](https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v3_optimal/yolov4.weights) (Google-drive mirror [yolov4.weights](https://drive.google.com/open?id=1cewMfusmPjYWbrnuJRuKhPMwRe_b9PaT) ) paper [Yolo v4](https://arxiv.org/abs/2004.10934)
-    just change `width=` and `height=` parameters in `yolov4.cfg` file and use the same `yolov4.weights` file for all cases:
-  - `width=608 height=608` in cfg: **65.7% mAP@0.5 (43.5% AP@0.5:0.95) - 34(R) FPS / 62(V) FPS** - 128.5 BFlops
-  - `width=512 height=512` in cfg: **64.9% mAP@0.5 (43.0% AP@0.5:0.95) - 45(R) FPS / 83(V) FPS** - 91.1 BFlops
-  - `width=416 height=416` in cfg: **62.8% mAP@0.5 (41.2% AP@0.5:0.95) - 55(R) FPS / 96(V) FPS** - 60.1 BFlops
-  - `width=320 height=320` in cfg:   **60% mAP@0.5 (  38% AP@0.5:0.95) - 63(R) FPS / 123(V) FPS** - 35.5 BFlops
-
-- [yolov4-tiny.cfg](https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4-tiny.cfg) - **40.2% mAP@0.5 - 371(1080Ti) FPS / 330(RTX2070) FPS** - 6.9 BFlops - 23.1 MB: [yolov4-tiny.weights](https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4-tiny.weights)
-
-- [enet-coco.cfg (EfficientNetB0-Yolov3)](https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/enet-coco.cfg) - **45.5% mAP@0.5 - 55(R) FPS** - 3.7 BFlops - 18.3 MB: [enetb0-coco_final.weights](https://drive.google.com/file/d/1FlHeQjWEQVJt0ay1PVsiuuMzmtNyv36m/view)
-
-- [yolov3-openimages.cfg](https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov3-openimages.cfg) - 247 MB - 18(R) FPS - OpenImages dataset: [yolov3-openimages.weights](https://pjreddie.com/media/files/yolov3-openimages.weights)
-
-<details><summary><b>CLICK ME</b> - Yolo v3 models</summary>
-
-- [csresnext50-panet-spp-original-optimal.cfg](https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/csresnext50-panet-spp-original-optimal.cfg) - **65.4% mAP@0.5 (43.2% AP@0.5:0.95) - 32(R) FPS** - 100.5 BFlops - 217 MB: [csresnext50-panet-spp-original-optimal_final.weights](https://drive.google.com/open?id=1_NnfVgj0EDtb_WLNoXV8Mo7WKgwdYZCc)
-
-- [yolov3-spp.cfg](https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov3-spp.cfg) - **60.6% mAP@0.5 - 38(R) FPS** - 141.5 BFlops - 240 MB: [yolov3-spp.weights](https://pjreddie.com/media/files/yolov3-spp.weights)
-
-- [csresnext50-panet-spp.cfg](https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/csresnext50-panet-spp.cfg) - **60.0% mAP@0.5 - 44 FPS** - 71.3 BFlops - 217 MB: [csresnext50-panet-spp_final.weights](https://drive.google.com/file/d/1aNXdM8qVy11nqTcd2oaVB3mf7ckr258-/view?usp=sharing)
-
-- [yolov3.cfg](https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov3.cfg) - **55.3% mAP@0.5 - 66(R) FPS** - 65.9 BFlops - 236 MB: [yolov3.weights](https://pjreddie.com/media/files/yolov3.weights)
-
-- [yolov3-tiny.cfg](https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov3-tiny.cfg) - **33.1% mAP@0.5 - 345(R) FPS** - 5.6 BFlops - 33.7 MB: [yolov3-tiny.weights](https://pjreddie.com/media/files/yolov3-tiny.weights)
-
-- [yolov3-tiny-prn.cfg](https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov3-tiny-prn.cfg) - **33.1% mAP@0.5 - 370(R) FPS** - 3.5 BFlops - 18.8 MB: [yolov3-tiny-prn.weights](https://drive.google.com/file/d/18yYZWyKbo4XSDVyztmsEcF9B_6bxrhUY/view?usp=sharing)
-
-</details>
-
-<details><summary><b>CLICK ME</b> - Yolo v2 models</summary>
-
-- `yolov2.cfg` (194 MB COCO Yolo v2) - requires 4 GB GPU-RAM: https://pjreddie.com/media/files/yolov2.weights
-- `yolo-voc.cfg` (194 MB VOC Yolo v2) - requires 4 GB GPU-RAM: http://pjreddie.com/media/files/yolo-voc.weights
-- `yolov2-tiny.cfg` (43 MB COCO Yolo v2) - requires 1 GB GPU-RAM: https://pjreddie.com/media/files/yolov2-tiny.weights
-- `yolov2-tiny-voc.cfg` (60 MB VOC Yolo v2) - requires 1 GB GPU-RAM: http://pjreddie.com/media/files/yolov2-tiny-voc.weights
-- `yolo9000.cfg` (186 MB Yolo9000-model) - requires 4 GB GPU-RAM: http://pjreddie.com/media/files/yolo9000.weights
-
-</details>
-
-Put it near compiled: darknet.exe
-
-You can get cfg-files by path: `darknet/cfg/`
-
-### Requirements for Windows, Linux and macOS
-
-- **CMake >= 3.18**: https://cmake.org/download/
-- **Powershell** (already installed on windows): https://docs.microsoft.com/en-us/powershell/scripting/install/installing-powershell
-- **CUDA >= 10.2**: https://developer.nvidia.com/cuda-toolkit-archive (on Linux do [Post-installation Actions](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#post-installation-actions))
-- **OpenCV >= 2.4**: use your preferred package manager (brew, apt), build from source using [vcpkg](https://github.com/Microsoft/vcpkg) or download from [OpenCV official site](https://opencv.org/releases.html) (on Windows set system variable `OpenCV_DIR` = `C:\opencv\build` - where are the `include` and `x64` folders [image](https://user-images.githubusercontent.com/4096485/53249516-5130f480-36c9-11e9-8238-a6e82e48c6f2.png))
-- **cuDNN >= 8.0.2** https://developer.nvidia.com/rdp/cudnn-archive (on **Linux** copy `cudnn.h`,`libcudnn.so`... as described here https://docs.nvidia.com/deeplearning/sdk/cudnn-install/index.html#installlinux-tar , on **Windows** copy `cudnn.h`,`cudnn64_7.dll`, `cudnn64_7.lib` as described here https://docs.nvidia.com/deeplearning/sdk/cudnn-install/index.html#installwindows )
-- **GPU with CC >= 3.0**: https://en.wikipedia.org/wiki/CUDA#GPUs_supported
-
-### Yolo v4 in other frameworks
-
-- **Pytorch - Scaled-YOLOv4:** https://github.com/WongKinYiu/ScaledYOLOv4
-- **TensorFlow:** `pip install yolov4` YOLOv4 on TensorFlow 2.0 / TFlite / Android: https://github.com/hunglc007/tensorflow-yolov4-tflite
-    Official TF models: https://github.com/tensorflow/models/tree/master/official/vision/beta/projects/yolo
-    For YOLOv4 - convert `yolov4.weights`/`cfg` files to `yolov4.pb` by using [TNTWEN](https://github.com/TNTWEN/OpenVINO-YOLOV4) project, and to `yolov4.tflite` [TensorFlow-lite](https://www.tensorflow.org/lite/guide/get_started#2_convert_the_model_format)
-- **OpenCV** the fastest implementation of YOLOv4 for CPU (x86/ARM-Android), OpenCV can be compiled with [OpenVINO-backend](https://github.com/opencv/opencv/wiki/Intel's-Deep-Learning-Inference-Engine-backend) for running on (Myriad X / USB Neural Compute Stick / Arria FPGA), use `yolov4.weights`/`cfg` with: [C++ example](https://github.com/opencv/opencv/blob/8c25a8eb7b10fb50cda323ee6bec68aa1a9ce43c/samples/dnn/object_detection.cpp#L192-L221) or [Python example](https://github.com/opencv/opencv/blob/8c25a8eb7b10fb50cda323ee6bec68aa1a9ce43c/samples/dnn/object_detection.py#L129-L150)
-- **Intel OpenVINO 2021.2:** supports YOLOv4 (NPU Myriad X / USB Neural Compute Stick / Arria FPGA): https://devmesh.intel.com/projects/openvino-yolov4-49c756 read this [manual](https://github.com/TNTWEN/OpenVINO-YOLOV4) (old [manual](https://software.intel.com/en-us/articles/OpenVINO-Using-TensorFlow#converting-a-darknet-yolo-model) ) (for [Scaled-YOLOv4](https://github.com/WongKinYiu/ScaledYOLOv4/tree/yolov4-large) models use https://github.com/Chen-MingChang/pytorch_YOLO_OpenVINO_demo )
-- **PyTorch > ONNX**:
-  - [WongKinYiu/PyTorch_YOLOv4](https://github.com/WongKinYiu/PyTorch_YOLOv4)
-  - [maudzung/3D-YOLOv4](https://github.com/maudzung/Complex-YOLOv4-Pytorch)
-  - [Tianxiaomo/pytorch-YOLOv4](https://github.com/Tianxiaomo/pytorch-YOLOv4)
-  - [YOLOv5](https://github.com/ultralytics/yolov5)
-- **ONNX** on Jetson for YOLOv4: https://developer.nvidia.com/blog/announcing-onnx-runtime-for-jetson/ and https://github.com/ttanzhiqiang/onnx_tensorrt_project
-- **nVidia Transfer Learning Toolkit (TLT>=3.0)** Training and Detection https://docs.nvidia.com/metropolis/TLT/tlt-user-guide/text/object_detection/yolo_v4.html
-- **TensorRT+tkDNN**: https://github.com/ceccocats/tkDNN#fps-results
-- **Deepstream 5.0 / TensorRT for YOLOv4** https://github.com/NVIDIA-AI-IOT/yolov4_deepstream or https://github.com/marcoslucianops/DeepStream-Yolo read [Yolo is natively supported in DeepStream 4.0](https://news.developer.nvidia.com/deepstream-sdk-4-now-available/) and [PDF](https://docs.nvidia.com/metropolis/deepstream/Custom_YOLO_Model_in_the_DeepStream_YOLO_App.pdf). Additionally [jkjung-avt/tensorrt_demos](https://github.com/jkjung-avt/tensorrt_demos) or [wang-xinyu/tensorrtx](https://github.com/wang-xinyu/tensorrtx)
-- **Triton Inference Server / TensorRT** https://github.com/isarsoft/yolov4-triton-tensorrt
-- **DirectML** https://github.com/microsoft/DirectML/tree/master/Samples/yolov4
-- **OpenCL** (Intel, AMD, Mali GPUs for macOS & GNU/Linux) https://github.com/sowson/darknet
-- **HIP** for Training and Detection on AMD GPU https://github.com/os-hackathon/darknet
-- **ROS** (Robot Operating System) https://github.com/engcang/ros-yolo-sort
-- **Xilinx Zynq Ultrascale+ Deep Learning Processor (DPU) ZCU102/ZCU104:** https://github.com/Xilinx/Vitis-In-Depth-Tutorial/tree/master/Machine_Learning/Design_Tutorials/07-yolov4-tutorial
-- **Amazon Neurochip / Amazon EC2 Inf1 instances** 1.85 times higher throughput and 37% lower cost per image for TensorFlow based YOLOv4 model, using Keras [URL](https://aws.amazon.com/ru/blogs/machine-learning/improving-performance-for-deep-learning-based-object-detection-with-an-aws-neuron-compiled-yolov4-model-on-aws-inferentia/)
-- **TVM** - compilation of deep learning models (Keras, MXNet, PyTorch, Tensorflow, CoreML, DarkNet) into minimum deployable modules on diverse hardware backend (CPUs, GPUs, FPGA, and specialized accelerators): https://tvm.ai/about
-- **Tencent/ncnn:** the fastest inference of YOLOv4 on mobile phone CPU: https://github.com/Tencent/ncnn
-- **OpenDataCam** - It detects, tracks and counts moving objects by using YOLOv4: https://github.com/opendatacam/opendatacam#-hardware-pre-requisite
-- **Netron** - Visualizer for neural networks: https://github.com/lutzroeder/netron
-
-#### Datasets
-
-- MS COCO: use `./scripts/get_coco_dataset.sh` to get labeled MS COCO detection dataset
-- OpenImages: use `python ./scripts/get_openimages_dataset.py` for labeling train detection dataset
-- Pascal VOC: use `python ./scripts/voc_label.py` for labeling Train/Test/Val detection datasets
-- ILSVRC2012 (ImageNet classification): use `./scripts/get_imagenet_train.sh` (also `imagenet_label.sh` for labeling valid set)
-- German/Belgium/Russian/LISA/MASTIF Traffic Sign Datasets for Detection - use this parsers: https://github.com/angeligareta/Datasets2Darknet#detection-task
-- List of other datasets: https://github.com/AlexeyAB/darknet/tree/master/scripts#datasets
-
-### Improvements in this repository
-
-- developed State-of-the-Art object detector YOLOv4
-- added State-of-Art models: CSP, PRN, EfficientNet
-- added layers: [conv_lstm], [scale_channels] SE/ASFF/BiFPN, [local_avgpool], [sam], [Gaussian_yolo], [reorg3d] (fixed [reorg]), fixed [batchnorm]
-- added the ability for training recurrent models (with layers conv-lstm`[conv_lstm]`/conv-rnn`[crnn]`) for accurate detection on video
-- added data augmentation: `[net] mixup=1 cutmix=1 mosaic=1 blur=1`. Added activations: SWISH, MISH, NORM_CHAN, NORM_CHAN_SOFTMAX
-- added the ability for training with GPU-processing using CPU-RAM to increase the mini_batch_size and increase accuracy (instead of batch-norm sync)
-- improved binary neural network performance **2x-4x times** for Detection on CPU and GPU if you trained your own weights by using this XNOR-net model (bit-1 inference) : https://github.com/AlexeyAB/darknet/blob/master/cfg/yolov3-tiny_xnor.cfg
-- improved neural network performance **~7%** by fusing 2 layers into 1: Convolutional + Batch-norm
-- improved performance: Detection **2x times**, on GPU Volta/Turing (Tesla V100, GeForce RTX, ...) using Tensor Cores if `CUDNN_HALF` defined in the `Makefile` or `darknet.sln`
-- improved performance **~1.2x** times on FullHD, **~2x** times on 4K, for detection on the video (file/stream) using `darknet detector demo`...
-- improved performance **3.5 X times** of data augmentation for training (using OpenCV SSE/AVX functions instead of hand-written functions) - removes bottleneck for training on multi-GPU or GPU Volta
-- improved performance of detection and training on Intel CPU with AVX (Yolo v3 **~85%**)
-- optimized memory allocation during network resizing when `random=1`
-- optimized GPU initialization for detection - we use batch=1 initially instead of re-init with batch=1
-- added correct calculation of **mAP, F1, IoU, Precision-Recall** using command `darknet detector map`...
-- added drawing of chart of average-Loss and accuracy-mAP (`-map` flag) during training
-- run `./darknet detector demo ... -json_port 8070 -mjpeg_port 8090` as JSON and MJPEG server to get results online over the network by using your soft or Web-browser
-- added calculation of anchors for training
-- added example of Detection and Tracking objects: https://github.com/AlexeyAB/darknet/blob/master/src/yolo_console_dll.cpp
-- run-time tips and warnings if you use incorrect cfg-file or dataset
-- added support for Windows
-- many other fixes of code...
-
-And added manual - [How to train Yolo v4-v2 (to detect your custom objects)](#how-to-train-to-detect-your-custom-objects)
-
-Also, you might be interested in using a simplified repository where is implemented INT8-quantization (+30% speedup and -1% mAP reduced): https://github.com/AlexeyAB/yolo2_light
-
-#### How to use on the command line
-
-On Linux use `./darknet` instead of `darknet.exe`, like this:`./darknet detector test ./cfg/coco.data ./cfg/yolov4.cfg ./yolov4.weights`
-
-On Linux find executable file `./darknet` in the root directory, while on Windows find it in the directory `\build\darknet\x64`
-
-- Yolo v4 COCO - **image**: `darknet.exe detector test cfg/coco.data cfg/yolov4.cfg yolov4.weights -thresh 0.25`
-- **Output coordinates** of objects: `darknet.exe detector test cfg/coco.data yolov4.cfg yolov4.weights -ext_output dog.jpg`
-- Yolo v4 COCO - **video**: `darknet.exe detector demo cfg/coco.data cfg/yolov4.cfg yolov4.weights -ext_output test.mp4`
-- Yolo v4 COCO - **WebCam 0**: `darknet.exe detector demo cfg/coco.data cfg/yolov4.cfg yolov4.weights -c 0`
-- Yolo v4 COCO for **net-videocam** - Smart WebCam: `darknet.exe detector demo cfg/coco.data cfg/yolov4.cfg yolov4.weights http://192.168.0.80:8080/video?dummy=param.mjpg`
-- Yolo v4 - **save result videofile res.avi**: `darknet.exe detector demo cfg/coco.data cfg/yolov4.cfg yolov4.weights test.mp4 -out_filename res.avi`
-- Yolo v3 **Tiny** COCO - video: `darknet.exe detector demo cfg/coco.data cfg/yolov3-tiny.cfg yolov3-tiny.weights test.mp4`
-- **JSON and MJPEG server** that allows multiple connections from your soft or Web-browser `ip-address:8070` and 8090: `./darknet detector demo ./cfg/coco.data ./cfg/yolov3.cfg ./yolov3.weights test50.mp4 -json_port 8070 -mjpeg_port 8090 -ext_output`
-- Yolo v3 Tiny **on GPU #1**: `darknet.exe detector demo cfg/coco.data cfg/yolov3-tiny.cfg yolov3-tiny.weights -i 1 test.mp4`
-- Alternative method Yolo v3 COCO - image: `darknet.exe detect cfg/yolov4.cfg yolov4.weights -i 0 -thresh 0.25`
-- Train on **Amazon EC2**, to see mAP & Loss-chart using URL like: `http://ec2-35-160-228-91.us-west-2.compute.amazonaws.com:8090` in the Chrome/Firefox (**Darknet should be compiled with OpenCV**):
-    `./darknet detector train cfg/coco.data yolov4.cfg yolov4.conv.137 -dont_show -mjpeg_port 8090 -map`
-- 186 MB Yolo9000 - image: `darknet.exe detector test cfg/combine9k.data cfg/yolo9000.cfg yolo9000.weights`
-- Remember to put data/9k.tree and data/coco9k.map under the same folder of your app if you use the cpp api to build an app
-- To process a list of images `data/train.txt` and save results of detection to `result.json` file use:
-    `darknet.exe detector test cfg/coco.data cfg/yolov4.cfg yolov4.weights -ext_output -dont_show -out result.json < data/train.txt`
-- To process a list of images `data/train.txt` and save results of detection to `result.txt` use:
-    `darknet.exe detector test cfg/coco.data cfg/yolov4.cfg yolov4.weights -dont_show -ext_output < data/train.txt > result.txt`
-- Pseudo-labelling - to process a list of images `data/new_train.txt` and save results of detection in Yolo training format for each image as label `<image_name>.txt` (in this way you can increase the amount of training data) use:
-    `darknet.exe detector test cfg/coco.data cfg/yolov4.cfg yolov4.weights -thresh 0.25 -dont_show -save_labels < data/new_train.txt`
-- To calculate anchors: `darknet.exe detector calc_anchors data/obj.data -num_of_clusters 9 -width 416 -height 416`
-- To check accuracy mAP@IoU=50: `darknet.exe detector map data/obj.data yolo-obj.cfg backup\yolo-obj_7000.weights`
-- To check accuracy mAP@IoU=75: `darknet.exe detector map data/obj.data yolo-obj.cfg backup\yolo-obj_7000.weights -iou_thresh 0.75`
-
-##### For using network video-camera mjpeg-stream with any Android smartphone
-
-1. Download for Android phone mjpeg-stream soft: IP Webcam / Smart WebCam
-
-    - Smart WebCam - preferably: https://play.google.com/store/apps/details?id=com.acontech.android.SmartWebCam2
-    - IP Webcam: https://play.google.com/store/apps/details?id=com.pas.webcam
-
-2. Connect your Android phone to computer by WiFi (through a WiFi-router) or USB
-3. Start Smart WebCam on your phone
-4. Replace the address below, on shown in the phone application (Smart WebCam) and launch:
-
-- Yolo v4 COCO-model: `darknet.exe detector demo data/coco.data yolov4.cfg yolov4.weights http://192.168.0.80:8080/video?dummy=param.mjpg -i 0`
-
-### How to compile on Linux/macOS (using `CMake`)
-
-The `CMakeLists.txt` will attempt to find installed optional dependencies like CUDA, cudnn, ZED and build against those. It will also create a shared object library file to use `darknet` for code development.
-
-To update CMake on Ubuntu, it's better to follow guide here: https://apt.kitware.com/ or https://cmake.org/download/
-
-```bash
-git clone https://github.com/AlexeyAB/darknet
-cd darknet
-mkdir build_release
-cd build_release
-cmake ..
-cmake --build . --target install --parallel 8
-```
-
-### Using also PowerShell
-
-Install: `Cmake`, `CUDA`, `cuDNN` [How to install dependencies](#requirements)
-
-Install powershell for your OS (Linux or MacOS) ([guide here](https://docs.microsoft.com/en-us/powershell/scripting/install/installing-powershell)).
-
-Open PowerShell type these commands
-
-```PowerShell
-git clone https://github.com/AlexeyAB/darknet
-cd darknet
-./build.ps1 -UseVCPKG -EnableOPENCV -EnableCUDA -EnableCUDNN
-```
-
-- remove options like `-EnableCUDA` or `-EnableCUDNN` if you are not interested into
-- remove option `-UseVCPKG` if you plan to manually provide OpenCV library to darknet or if you do not want to enable OpenCV integration
-- add option `-EnableOPENCV_CUDA` if you want to build OpenCV with CUDA support - very slow to build! (requires `-UseVCPKG`)
-
-If you open the `build.ps1` script at the beginning you will find all available switches.
-
-### How to compile on Linux (using `make`)
-
-Just do `make` in the darknet directory. (You can try to compile and run it on Google Colab in cloud [link](https://colab.research.google.com/drive/12QusaaRj_lUwCGDvQNfICpa7kA7_a2dE) (press «Open in Playground» button at the top-left corner) and watch the video [link](https://www.youtube.com/watch?v=mKAEGSxwOAY) )
-Before make, you can set such options in the `Makefile`: [link](https://github.com/AlexeyAB/darknet/blob/9c1b9a2cf6363546c152251be578a21f3c3caec6/Makefile#L1)
-
-- `GPU=1` to build with CUDA to accelerate by using GPU (CUDA should be in `/usr/local/cuda`)
-- `CUDNN=1` to build with cuDNN v5-v7 to accelerate training by using GPU (cuDNN should be in `/usr/local/cudnn`)
-- `CUDNN_HALF=1` to build for Tensor Cores (on Titan V / Tesla V100 / DGX-2 and later) speedup Detection 3x, Training 2x
-- `OPENCV=1` to build with OpenCV 4.x/3.x/2.4.x - allows to detect on video files and video streams from network cameras or web-cams
-- `DEBUG=1` to build debug version of Yolo
-- `OPENMP=1` to build with OpenMP support to accelerate Yolo by using multi-core CPU
-- `LIBSO=1` to build a library `darknet.so` and binary runnable file `uselib` that uses this library. Or you can try to run so `LD_LIBRARY_PATH=./:$LD_LIBRARY_PATH ./uselib test.mp4` How to use this SO-library from your own code - you can look at C++ example: https://github.com/AlexeyAB/darknet/blob/master/src/yolo_console_dll.cpp
-    or use in such a way: `LD_LIBRARY_PATH=./:$LD_LIBRARY_PATH ./uselib data/coco.names cfg/yolov4.cfg yolov4.weights test.mp4`
-- `ZED_CAMERA=1` to build a library with ZED-3D-camera support (should be ZED SDK installed), then run
-    `LD_LIBRARY_PATH=./:$LD_LIBRARY_PATH ./uselib data/coco.names cfg/yolov4.cfg yolov4.weights zed_camera`
-- You also need to specify for which graphics card the code is generated. This is done by setting `ARCH=`. If you use a never version than CUDA 11 you further need to edit line 20 from Makefile and remove `-gencode arch=compute_30,code=sm_30 \` as Kepler GPU support was dropped in CUDA 11. You can also drop the general `ARCH=` and just uncomment `ARCH=` for your graphics card.
-
-To run Darknet on Linux use examples from this article, just use `./darknet` instead of `darknet.exe`, i.e. use this command: `./darknet detector test ./cfg/coco.data ./cfg/yolov4.cfg ./yolov4.weights`
-
-### How to compile on Windows (using `CMake`)
-
-Requires:
-
-- MSVC: https://visualstudio.microsoft.com/thank-you-downloading-visual-studio/?sku=Community
-- CMake GUI: `Windows win64-x64 Installer`https://cmake.org/download/
-- Download Darknet zip-archive with the latest commit and uncompress it: [master.zip](https://github.com/AlexeyAB/darknet/archive/master.zip)
-
-In Windows:
-
-- Start (button) -> All programs -> CMake -> CMake (gui) ->
-
-- [look at image](https://habrastorage.org/webt/pz/s1/uu/pzs1uu4heb7vflfcjqn-lxy-aqu.jpeg) In CMake: Enter input path to the darknet Source, and output path to the Binaries -> Configure (button) -> Optional platform for generator: `x64`  -> Finish -> Generate -> Open Project ->
-
-- in MS Visual Studio: Select: x64 and Release -> Build -> Build solution
-
-- find the executable file `darknet.exe` in the output path to the binaries you specified
-
-![x64 and Release](https://habrastorage.org/webt/ay/ty/f-/aytyf-8bufe7q-16yoecommlwys.jpeg)
-
-### How to compile on Windows (using `vcpkg`)
-
-This is the recommended approach to build Darknet on Windows.
-
-1. Install Visual Studio 2017 or 2019. In case you need to download it, please go here: [Visual Studio Community](http://visualstudio.com). Remember to install English language pack, this is mandatory for vcpkg!
-
-2. Install CUDA enabling VS Integration during installation.
-
-3. Open Powershell (Start -> All programs -> Windows Powershell) and type these commands:
-
-```PowerShell
-Set-ExecutionPolicy unrestricted -Scope CurrentUser -Force
-git clone https://github.com/AlexeyAB/darknet
-cd darknet
-.\build.ps1 -UseVCPKG -EnableOPENCV -EnableCUDA -EnableCUDNN
-```
-
-(add option `-EnableOPENCV_CUDA` if you want to build OpenCV with CUDA support - very slow to build! - or remove options like `-EnableCUDA` or `-EnableCUDNN` if you are not interested in them). If you open the `build.ps1` script at the beginning you will find all available switches.
-
-## How to train with multi-GPU
-
-1. Train it first on 1 GPU for like 1000 iterations: `darknet.exe detector train cfg/coco.data cfg/yolov4.cfg yolov4.conv.137`
-
-2. Then stop and by using partially-trained model `/backup/yolov4_1000.weights` run training with multigpu (up to 4 GPUs): `darknet.exe detector train cfg/coco.data cfg/yolov4.cfg /backup/yolov4_1000.weights -gpus 0,1,2,3`
-
-If you get a Nan, then for some datasets better to decrease learning rate, for 4 GPUs set `learning_rate = 0,00065` (i.e. learning_rate = 0.00261 / GPUs). In this case also increase 4x times `burn_in =` in your cfg-file. I.e. use `burn_in = 4000` instead of `1000`.
-
-https://groups.google.com/d/msg/darknet/NbJqonJBTSY/Te5PfIpuCAAJ
-
-## How to train (to detect your custom objects)
-
-(to train old Yolo v2 `yolov2-voc.cfg`, `yolov2-tiny-voc.cfg`, `yolo-voc.cfg`, `yolo-voc.2.0.cfg`, ... [click by the link](https://github.com/AlexeyAB/darknet/tree/47c7af1cea5bbdedf1184963355e6418cb8b1b4f#how-to-train-pascal-voc-data))
-
-Training Yolo v4 (and v3):
-
-0. For training `cfg/yolov4-custom.cfg` download the pre-trained weights-file (162 MB): [yolov4.conv.137](https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v3_optimal/yolov4.conv.137) (Google drive mirror [yolov4.conv.137](https://drive.google.com/open?id=1JKF-bdIklxOOVy-2Cr5qdvjgGpmGfcbp) )
-1. Create file `yolo-obj.cfg` with the same content as in `yolov4-custom.cfg` (or copy `yolov4-custom.cfg` to `yolo-obj.cfg)` and:
-
-- change line batch to [`batch=64`](https://github.com/AlexeyAB/darknet/blob/0039fd26786ab5f71d5af725fc18b3f521e7acfd/cfg/yolov3.cfg#L3)
-- change line subdivisions to [`subdivisions=16`](https://github.com/AlexeyAB/darknet/blob/0039fd26786ab5f71d5af725fc18b3f521e7acfd/cfg/yolov3.cfg#L4)
-- change line max_batches to (`classes*2000`, but not less than number of training images and not less than `6000`), f.e. [`max_batches=6000`](https://github.com/AlexeyAB/darknet/blob/0039fd26786ab5f71d5af725fc18b3f521e7acfd/cfg/yolov3.cfg#L20) if you train for 3 classes
-- change line steps to 80% and 90% of max_batches, f.e. [`steps=4800,5400`](https://github.com/AlexeyAB/darknet/blob/0039fd26786ab5f71d5af725fc18b3f521e7acfd/cfg/yolov3.cfg#L22)
-- set network size `width=416 height=416` or any value multiple of 32: https://github.com/AlexeyAB/darknet/blob/0039fd26786ab5f71d5af725fc18b3f521e7acfd/cfg/yolov3.cfg#L8-L9
-- change line `classes=80` to your number of objects in each of 3 `[yolo]`-layers:
-  - https://github.com/AlexeyAB/darknet/blob/0039fd26786ab5f71d5af725fc18b3f521e7acfd/cfg/yolov3.cfg#L610
-  - https://github.com/AlexeyAB/darknet/blob/0039fd26786ab5f71d5af725fc18b3f521e7acfd/cfg/yolov3.cfg#L696
-  - https://github.com/AlexeyAB/darknet/blob/0039fd26786ab5f71d5af725fc18b3f521e7acfd/cfg/yolov3.cfg#L783
-- change [`filters=255`] to filters=(classes + 5)x3 in the 3 `[convolutional]` before each `[yolo]` layer, keep in mind that it only has to be the last `[convolutional]` before each of the `[yolo]` layers.
-  - https://github.com/AlexeyAB/darknet/blob/0039fd26786ab5f71d5af725fc18b3f521e7acfd/cfg/yolov3.cfg#L603
-  - https://github.com/AlexeyAB/darknet/blob/0039fd26786ab5f71d5af725fc18b3f521e7acfd/cfg/yolov3.cfg#L689
-  - https://github.com/AlexeyAB/darknet/blob/0039fd26786ab5f71d5af725fc18b3f521e7acfd/cfg/yolov3.cfg#L776
-- when using [`[Gaussian_yolo]`](https://github.com/AlexeyAB/darknet/blob/6e5bdf1282ad6b06ed0e962c3f5be67cf63d96dc/cfg/Gaussian_yolov3_BDD.cfg#L608)  layers, change [`filters=57`] filters=(classes + 9)x3 in the 3 `[convolutional]` before each `[Gaussian_yolo]` layer
-  - https://github.com/AlexeyAB/darknet/blob/6e5bdf1282ad6b06ed0e962c3f5be67cf63d96dc/cfg/Gaussian_yolov3_BDD.cfg#L604
-  - https://github.com/AlexeyAB/darknet/blob/6e5bdf1282ad6b06ed0e962c3f5be67cf63d96dc/cfg/Gaussian_yolov3_BDD.cfg#L696
-  - https://github.com/AlexeyAB/darknet/blob/6e5bdf1282ad6b06ed0e962c3f5be67cf63d96dc/cfg/Gaussian_yolov3_BDD.cfg#L789
-
-So if `classes=1` then should be `filters=18`. If `classes=2` then write `filters=21`.
-**(Do not write in the cfg-file: filters=(classes + 5)x3)**
-
-(Generally `filters` depends on the `classes`, `coords` and number of `mask`s, i.e. filters=`(classes + coords + 1)*<number of mask>`, where `mask` is indices of anchors. If `mask` is absence, then filters=`(classes + coords + 1)*num`)
-
-So for example, for 2 objects, your file `yolo-obj.cfg` should differ from `yolov4-custom.cfg` in such lines in each of **3** [yolo]-layers:
-
-```ini
-[convolutional]
-filters=21
-
-[region]
-classes=2
-```
-
-2. Create file `obj.names` in the directory `build\darknet\x64\data\`, with objects names - each in new line
-3. Create file `obj.data` in the directory `build\darknet\x64\data\`, containing (where **classes = number of objects**):
-
-  ```ini
-  classes = 2
-  train  = data/train.txt
-  valid  = data/test.txt
-  names = data/obj.names
-  backup = backup/
-  ```
-
-4. Put image-files (.jpg) of your objects in the directory `build\darknet\x64\data\obj\`
-5. You should label each object on images from your dataset. Use this visual GUI-software for marking bounded boxes of objects and generating annotation files for Yolo v2 & v3: https://github.com/AlexeyAB/Yolo_mark
-
-It will create `.txt`-file for each `.jpg`-image-file - in the same directory and with the same name, but with `.txt`-extension, and put to file: object number and object coordinates on this image, for each object in new line:
-
-`<object-class> <x_center> <y_center> <width> <height>`
-
-  Where:
-
-- `<object-class>` - integer object number from `0` to `(classes-1)`
-- `<x_center> <y_center> <width> <height>` - float values **relative** to width and height of image, it can be equal from `(0.0 to 1.0]`
-- for example: `<x> = <absolute_x> / <image_width>` or `<height> = <absolute_height> / <image_height>`
-- attention: `<x_center> <y_center>` - are center of rectangle (are not top-left corner)
-
-  For example for `img1.jpg` you will be created `img1.txt` containing:
-
-  ```csv
-  1 0.716797 0.395833 0.216406 0.147222
-  0 0.687109 0.379167 0.255469 0.158333
-  1 0.420312 0.395833 0.140625 0.166667
-  ```
-
-6. Create file `train.txt` in directory `build\darknet\x64\data\`, with filenames of your images, each filename in new line, with path relative to `darknet.exe`, for example containing:
-
-  ```csv
-  data/obj/img1.jpg
-  data/obj/img2.jpg
-  data/obj/img3.jpg
-  ```
-
-7. Download pre-trained weights for the convolutional layers and put to the directory `build\darknet\x64`
-    - for `yolov4.cfg`, `yolov4-custom.cfg` (162 MB): [yolov4.conv.137](https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v3_optimal/yolov4.conv.137) (Google drive mirror [yolov4.conv.137](https://drive.google.com/open?id=1JKF-bdIklxOOVy-2Cr5qdvjgGpmGfcbp) )
-    - for `yolov4-tiny.cfg`, `yolov4-tiny-3l.cfg`, `yolov4-tiny-custom.cfg` (19 MB): [yolov4-tiny.conv.29](https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4-tiny.conv.29)  
-    - for `csresnext50-panet-spp.cfg` (133 MB): [csresnext50-panet-spp.conv.112](https://drive.google.com/file/d/16yMYCLQTY_oDlCIZPfn_sab6KD3zgzGq/view?usp=sharing)
-    - for `yolov3.cfg, yolov3-spp.cfg` (154 MB): [darknet53.conv.74](https://pjreddie.com/media/files/darknet53.conv.74)
-    - for `yolov3-tiny-prn.cfg , yolov3-tiny.cfg` (6 MB): [yolov3-tiny.conv.11](https://drive.google.com/file/d/18v36esoXCh-PsOKwyP2GWrpYDptDY8Zf/view?usp=sharing)
-    - for `enet-coco.cfg (EfficientNetB0-Yolov3)` (14 MB): [enetb0-coco.conv.132](https://drive.google.com/file/d/1uhh3D6RSn0ekgmsaTcl-ZW53WBaUDo6j/view?usp=sharing)
-
-8. Start training by using the command line: `darknet.exe detector train data/obj.data yolo-obj.cfg yolov4.conv.137`
-
-   To train on Linux use command: `./darknet detector train data/obj.data yolo-obj.cfg yolov4.conv.137` (just use `./darknet` instead of `darknet.exe`)
-
-   - (file `yolo-obj_last.weights` will be saved to the `build\darknet\x64\backup\` for each 100 iterations)
-   - (file `yolo-obj_xxxx.weights` will be saved to the `build\darknet\x64\backup\` for each 1000 iterations)
-   - (to disable Loss-Window use `darknet.exe detector train data/obj.data yolo-obj.cfg yolov4.conv.137 -dont_show`, if you train on computer without monitor like a cloud Amazon EC2)
-   - (to see the mAP & Loss-chart during training on remote server without GUI, use command `darknet.exe detector train data/obj.data yolo-obj.cfg yolov4.conv.137 -dont_show -mjpeg_port 8090 -map` then open URL `http://ip-address:8090` in Chrome/Firefox browser)
-
-8.1. For training with mAP (mean average precisions) calculation for each 4 Epochs (set `valid=valid.txt` or `train.txt` in `obj.data` file) and run: `darknet.exe detector train data/obj.data yolo-obj.cfg yolov4.conv.137 -map`
-
-9. After training is complete - get result `yolo-obj_final.weights` from path `build\darknet\x64\backup\`
-
-   - After each 100 iterations you can stop and later start training from this point. For example, after 2000 iterations you can stop training, and later just start training using: `darknet.exe detector train data/obj.data yolo-obj.cfg backup\yolo-obj_2000.weights`
-
-    (in the original repository https://github.com/pjreddie/darknet the weights-file is saved only once every 10 000 iterations `if(iterations > 1000)`)
-
-   - Also you can get result earlier than all 45000 iterations.
-
- **Note:** If during training you see `nan` values for `avg` (loss) field - then training goes wrong, but if `nan` is in some other lines - then training goes well.
-
- **Note:** If you changed width= or height= in your cfg-file, then new width and height must be divisible by 32.
-
- **Note:** After training use such command for detection: `darknet.exe detector test data/obj.data yolo-obj.cfg yolo-obj_8000.weights`
-
-  **Note:** if error `Out of memory` occurs then in `.cfg`-file you should increase `subdivisions=16`, 32 or 64: [link](https://github.com/AlexeyAB/darknet/blob/0039fd26786ab5f71d5af725fc18b3f521e7acfd/cfg/yolov3.cfg#L4)
-
-### How to train tiny-yolo (to detect your custom objects)
-
-Do all the same steps as for the full yolo model as described above. With the exception of:
-
-- Download file with the first 29-convolutional layers of yolov4-tiny: https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4-tiny.conv.29
- (Or get this file from yolov4-tiny.weights file by using command: `darknet.exe partial cfg/yolov4-tiny-custom.cfg yolov4-tiny.weights yolov4-tiny.conv.29 29`
-- Make your custom model `yolov4-tiny-obj.cfg` based on `cfg/yolov4-tiny-custom.cfg` instead of `yolov4.cfg`
-- Start training: `darknet.exe detector train data/obj.data yolov4-tiny-obj.cfg yolov4-tiny.conv.29`
-
-For training Yolo based on other models ([DenseNet201-Yolo](https://github.com/AlexeyAB/darknet/blob/master/build/darknet/x64/densenet201_yolo.cfg) or [ResNet50-Yolo](https://github.com/AlexeyAB/darknet/blob/master/build/darknet/x64/resnet50_yolo.cfg)), you can download and get pre-trained weights as showed in this file: https://github.com/AlexeyAB/darknet/blob/master/build/darknet/x64/partial.cmd
-If you made you custom model that isn't based on other models, then you can train it without pre-trained weights, then will be used random initial weights.
-
-## When should I stop training
-
-Usually sufficient 2000 iterations for each class(object), but not less than number of training images and not less than 6000 iterations in total. But for a more precise definition when you should stop training, use the following manual:
-
-1. During training, you will see varying indicators of error, and you should stop when no longer decreases **0.XXXXXXX avg**:
-
-  > Region Avg IOU: 0.798363, Class: 0.893232, Obj: 0.700808, No Obj: 0.004567, Avg Recall: 1.000000,  count: 8
-  > Region Avg IOU: 0.800677, Class: 0.892181, Obj: 0.701590, No Obj: 0.004574, Avg Recall: 1.000000,  count: 8
-  >
-  > **9002**: 0.211667, **0.60730 avg**, 0.001000 rate, 3.868000 seconds, 576128 images
-  > Loaded: 0.000000 seconds
-
-- **9002** - iteration number (number of batch)
-- **0.60730 avg** - average loss (error) - **the lower, the better**
-
-  When you see that average loss **0.xxxxxx avg** no longer decreases at many iterations then you should stop training. The final average loss can be from `0.05` (for a small model and easy dataset) to `3.0` (for a big model and a difficult dataset).
-  
-  Or if you train with flag `-map` then you will see mAP indicator `Last accuracy mAP@0.5 = 18.50%` in the console - this indicator is better than Loss, so train while mAP increases.
-
-2. Once training is stopped, you should take some of last `.weights`-files from `darknet\build\darknet\x64\backup` and choose the best of them:
-
-For example, you stopped training after 9000 iterations, but the best result can give one of previous weights (7000, 8000, 9000). It can happen due to over-fitting. **Over-fitting** - is case when you can detect objects on images from training-dataset, but can't detect objects on any others images. You should get weights from **Early Stopping Point**:
-
-![Over-fitting](https://hsto.org/files/5dc/7ae/7fa/5dc7ae7fad9d4e3eb3a484c58bfc1ff5.png)
-
-To get weights from Early Stopping Point:
-
-  2.1. At first, in your file `obj.data` you must specify the path to the validation dataset `valid = valid.txt` (format of `valid.txt` as in `train.txt`), and if you haven't validation images, just copy `data\train.txt` to `data\valid.txt`.
-
-  2.2 If training is stopped after 9000 iterations, to validate some of previous weights use this commands:
-
-(If you use another GitHub repository, then use `darknet.exe detector recall`... instead of `darknet.exe detector map`...)
-
-- `darknet.exe detector map data/obj.data yolo-obj.cfg backup\yolo-obj_7000.weights`
-- `darknet.exe detector map data/obj.data yolo-obj.cfg backup\yolo-obj_8000.weights`
-- `darknet.exe detector map data/obj.data yolo-obj.cfg backup\yolo-obj_9000.weights`
-
-And compare last output lines for each weights (7000, 8000, 9000):
-
-Choose weights-file **with the highest mAP (mean average precision)** or IoU (intersect over union)
-
-For example, **bigger mAP** gives weights `yolo-obj_8000.weights` - then **use this weights for detection**.
-
-Or just train with `-map` flag:
-
-`darknet.exe detector train data/obj.data yolo-obj.cfg yolov4.conv.137 -map`
-
-So you will see mAP-chart (red-line) in the Loss-chart Window. mAP will be calculated for each 4 Epochs using `valid=valid.txt` file that is specified in `obj.data` file (`1 Epoch = images_in_train_txt / batch` iterations)
-
-(to change the max x-axis value - change [`max_batches=`](https://github.com/AlexeyAB/darknet/blob/0039fd26786ab5f71d5af725fc18b3f521e7acfd/cfg/yolov3.cfg#L20) parameter to `2000*classes`, f.e. `max_batches=6000` for 3 classes)
-
-![loss_chart_map_chart](https://hsto.org/webt/yd/vl/ag/ydvlagutof2zcnjodstgroen8ac.jpeg)
-
-Example of custom object detection: `darknet.exe detector test data/obj.data yolo-obj.cfg yolo-obj_8000.weights`
-
-- **IoU** (intersect over union) - average intersect over union of objects and detections for a certain threshold = 0.24
-
-- **mAP** (mean average precision) - mean value of `average precisions` for each class, where `average precision` is average value of 11 points on PR-curve for each possible threshold (each probability of detection) for the same class (Precision-Recall in terms of PascalVOC, where Precision=TP/(TP+FP) and Recall=TP/(TP+FN) ), page-11: http://homepages.inf.ed.ac.uk/ckiw/postscript/ijcv_voc09.pdf
-
-**mAP** is default metric of precision in the PascalVOC competition, **this is the same as AP50** metric in the MS COCO competition.
-In terms of Wiki, indicators Precision and Recall have a slightly different meaning than in the PascalVOC competition, but **IoU always has the same meaning**.
-
-![precision_recall_iou](https://hsto.org/files/ca8/866/d76/ca8866d76fb840228940dbf442a7f06a.jpg)
-
-### Custom object detection
-
-Example of custom object detection: `darknet.exe detector test data/obj.data yolo-obj.cfg yolo-obj_8000.weights`
-
-| ![Yolo_v2_training](https://hsto.org/files/d12/1e7/515/d121e7515f6a4eb694913f10de5f2b61.jpg) | ![Yolo_v2_training](https://hsto.org/files/727/c7e/5e9/727c7e5e99bf4d4aa34027bb6a5e4bab.jpg) |
-|---|---|
-
-## How to improve object detection
-
-1. Before training:
-
-- set flag `random=1` in your `.cfg`-file - it will increase precision by training Yolo for different resolutions: [link](https://github.com/AlexeyAB/darknet/blob/0039fd26786ab5f71d5af725fc18b3f521e7acfd/cfg/yolov3.cfg#L788)
-
-- increase network resolution in your `.cfg`-file (`height=608`, `width=608` or any value multiple of 32) - it will increase precision
-
-- check that each object that you want to detect is mandatory labeled in your dataset - no one object in your data set should not be without label. In the most training issues - there are wrong labels in your dataset (got labels by using some conversion script, marked with a third-party tool, ...). Always check your dataset by using: https://github.com/AlexeyAB/Yolo_mark
-
-- my Loss is very high and mAP is very low, is training wrong? Run training with `-show_imgs` flag at the end of training command, do you see correct bounded boxes of objects (in windows or in files `aug_...jpg`)? If no - your training dataset is wrong.
-
-- for each object which you want to detect - there must be at least 1 similar object in the Training dataset with about the same: shape, side of object, relative size, angle of rotation, tilt, illumination. So desirable that your training dataset include images with objects at different: scales, rotations, lightings, from different sides, on different backgrounds - you should preferably have 2000 different images for each class or more, and you should train `2000*classes` iterations or more
-
-- desirable that your training dataset include images with non-labeled objects that you do not want to detect - negative samples without bounded box (empty `.txt` files) - use as many images of negative samples as there are images with objects
-
-- What is the best way to mark objects: label only the visible part of the object, or label the visible and overlapped part of the object, or label a little more than the entire object (with a little gap)? Mark as you like - how would you like it to be detected.
-
-- for training with a large number of objects in each image, add the parameter `max=200` or higher value in the last `[yolo]`-layer or `[region]`-layer in your cfg-file (the global maximum number of objects that can be detected by YoloV3 is `0,0615234375*(width*height)` where are width and height are parameters from `[net]` section in cfg-file)
-  
-- for training for small objects (smaller than 16x16 after the image is resized to 416x416) - set `layers = 23` instead of https://github.com/AlexeyAB/darknet/blob/6f718c257815a984253346bba8fb7aa756c55090/cfg/yolov4.cfg#L895
-  - set `stride=4` instead of https://github.com/AlexeyAB/darknet/blob/6f718c257815a984253346bba8fb7aa756c55090/cfg/yolov4.cfg#L892
-  - set `stride=4` instead of https://github.com/AlexeyAB/darknet/blob/6f718c257815a984253346bba8fb7aa756c55090/cfg/yolov4.cfg#L989
-  
-- for training for both small and large objects use modified models:
-  - Full-model: 5 yolo layers: https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov3_5l.cfg
-  - Tiny-model: 3 yolo layers: https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4-tiny_3l.cfg
-  - YOLOv4: 3 yolo layers: https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4-custom.cfg
-  
-- If you train the model to distinguish Left and Right objects as separate classes (left/right hand, left/right-turn on road signs, ...) then for disabling flip data augmentation - add `flip=0` here: https://github.com/AlexeyAB/darknet/blob/3d2d0a7c98dbc8923d9ff705b81ff4f7940ea6ff/cfg/yolov3.cfg#L17
-  
-- General rule - your training dataset should include such a set of relative sizes of objects that you want to detect:
-  - `train_network_width * train_obj_width / train_image_width ~= detection_network_width * detection_obj_width / detection_image_width`
-  - `train_network_height * train_obj_height / train_image_height ~= detection_network_height * detection_obj_height / detection_image_height`
-
-  I.e. for each object from Test dataset there must be at least 1 object in the Training dataset with the same class_id and about the same relative size:
-
-  `object width in percent from Training dataset` ~= `object width in percent from Test dataset`
-
-  That is, if only objects that occupied 80-90% of the image were present in the training set, then the trained network will not be able to detect objects that occupy 1-10% of the image.
-
-- to speedup training (with decreasing detection accuracy) set param `stopbackward=1` for layer-136 in cfg-file
-
-- each: `model of object, side, illumination, scale, each 30 grad` of the turn and inclination angles - these are *different objects* from an internal perspective of the neural network. So the more *different objects* you want to detect, the more complex network model should be used.
-
-- to make the detected bounded boxes more accurate, you can add 3 parameters `ignore_thresh = .9 iou_normalizer=0.5 iou_loss=giou` to each `[yolo]` layer and train, it will increase mAP@0.9, but decrease mAP@0.5.
-
-- Only if you are an **expert** in neural detection networks - recalculate anchors for your dataset for `width` and `height` from cfg-file:
-`darknet.exe detector calc_anchors data/obj.data -num_of_clusters 9 -width 416 -height 416`
-then set the same 9 `anchors` in each of 3 `[yolo]`-layers in your cfg-file. But you should change indexes of anchors `masks=` for each [yolo]-layer, so for YOLOv4 the 1st-[yolo]-layer has anchors smaller than 30x30, 2nd smaller than 60x60, 3rd remaining, and vice versa for YOLOv3. Also you should change the `filters=(classes + 5)*<number of mask>` before each [yolo]-layer. If many of the calculated anchors do not fit under the appropriate layers - then just try using all the default anchors.
-
-2. After training - for detection:
-
-- Increase network-resolution by set in your `.cfg`-file (`height=608` and `width=608`) or (`height=832` and `width=832`) or (any value multiple of 32) - this increases the precision and makes it possible to detect small objects: [link](https://github.com/AlexeyAB/darknet/blob/0039fd26786ab5f71d5af725fc18b3f521e7acfd/cfg/yolov3.cfg#L8-L9)
-
-- it is not necessary to train the network again, just use `.weights`-file already trained for 416x416 resolution
-
-- to get even greater accuracy you should train with higher resolution 608x608 or 832x832, note: if error `Out of memory` occurs then in `.cfg`-file you should increase `subdivisions=16`, 32 or 64: [link](https://github.com/AlexeyAB/darknet/blob/0039fd26786ab5f71d5af725fc18b3f521e7acfd/cfg/yolov3.cfg#L4)
-
-## How to mark bounded boxes of objects and create annotation files
-
-Here you can find repository with GUI-software for marking bounded boxes of objects and generating annotation files for Yolo v2 - v4: https://github.com/AlexeyAB/Yolo_mark
-
-With example of: `train.txt`, `obj.names`, `obj.data`, `yolo-obj.cfg`, `air`1-6`.txt`, `bird`1-4`.txt` for 2 classes of objects (air, bird) and `train_obj.cmd` with example how to train this image-set with Yolo v2 - v4
-
-Different tools for marking objects in images:
-
-1. in C++: https://github.com/AlexeyAB/Yolo_mark
-2. in Python: https://github.com/tzutalin/labelImg
-3. in Python: https://github.com/Cartucho/OpenLabeling
-4. in C++: https://www.ccoderun.ca/darkmark/
-5. in JavaScript: https://github.com/opencv/cvat
-6. in C++: https://github.com/jveitchmichaelis/deeplabel
-7. in C#: https://github.com/BMW-InnovationLab/BMW-Labeltool-Lite
-8. DL-Annotator for Windows ($30): [url](https://www.microsoft.com/en-us/p/dlannotator/9nsx79m7t8fn?activetab=pivot:overviewtab)
-9. v7labs - the greatest cloud labeling tool ($1.5 per hour): https://www.v7labs.com/
-
-## How to use Yolo as DLL and SO libraries
-
-- on Linux
-  - using `build.sh` or
-  - build `darknet` using `cmake` or
-  - set `LIBSO=1` in the `Makefile` and do `make`
-- on Windows
-  - using `build.ps1` or
-  - build `darknet` using `cmake` or
-  - compile `build\darknet\yolo_cpp_dll.sln` solution or `build\darknet\yolo_cpp_dll_no_gpu.sln` solution
-
-There are 2 APIs:
-
-- C API: https://github.com/AlexeyAB/darknet/blob/master/include/darknet.h
-  - Python examples using the C API:
-    - https://github.com/AlexeyAB/darknet/blob/master/darknet.py
-    - https://github.com/AlexeyAB/darknet/blob/master/darknet_video.py
-
-- C++ API: https://github.com/AlexeyAB/darknet/blob/master/include/yolo_v2_class.hpp
-  - C++ example that uses C++ API: https://github.com/AlexeyAB/darknet/blob/master/src/yolo_console_dll.cpp
-
-----
-
-1. To compile Yolo as C++ DLL-file `yolo_cpp_dll.dll` - open the solution `build\darknet\yolo_cpp_dll.sln`, set **x64** and **Release**, and do the: Build -> Build yolo_cpp_dll
-    - You should have installed **CUDA 10.2**
-    - To use cuDNN do: (right click on project) -> properties -> C/C++ -> Preprocessor -> Preprocessor Definitions, and add at the beginning of line: `CUDNN;`
-
-2. To use Yolo as DLL-file in your C++ console application - open the solution `build\darknet\yolo_console_dll.sln`, set **x64** and **Release**, and do the: Build -> Build yolo_console_dll
-
-    - you can run your console application from Windows Explorer `build\darknet\x64\yolo_console_dll.exe`
-    **use this command**: `yolo_console_dll.exe data/coco.names yolov4.cfg yolov4.weights test.mp4`
-
-    - after launching your console application and entering the image file name - you will see info for each object:
-    `<obj_id> <left_x> <top_y> <width> <height> <probability>`
-    - to use simple OpenCV-GUI you should uncomment line `//#define OPENCV` in `yolo_console_dll.cpp`-file: [link](https://github.com/AlexeyAB/darknet/blob/a6cbaeecde40f91ddc3ea09aa26a03ab5bbf8ba8/src/yolo_console_dll.cpp#L5)
-    - you can see source code of simple example for detection on the video file: [link](https://github.com/AlexeyAB/darknet/blob/ab1c5f9e57b4175f29a6ef39e7e68987d3e98704/src/yolo_console_dll.cpp#L75)
-
-`yolo_cpp_dll.dll`-API: [link](https://github.com/AlexeyAB/darknet/blob/master/src/yolo_v2_class.hpp#L42)
-
-```cpp
-struct bbox_t {
-    unsigned int x, y, w, h;    // (x,y) - top-left corner, (w, h) - width & height of bounded box
-    float prob;                    // confidence - probability that the object was found correctly
-    unsigned int obj_id;        // class of object - from range [0, classes-1]
-    unsigned int track_id;        // tracking id for video (0 - untracked, 1 - inf - tracked object)
-    unsigned int frames_counter;// counter of frames on which the object was detected
-};
-
-class Detector {
-public:
-        Detector(std::string cfg_filename, std::string weight_filename, int gpu_id = 0);
-        ~Detector();
-
-        std::vector<bbox_t> detect(std::string image_filename, float thresh = 0.2, bool use_mean = false);
-        std::vector<bbox_t> detect(image_t img, float thresh = 0.2, bool use_mean = false);
-        static image_t load_image(std::string image_filename);
-        static void free_image(image_t m);
-
-#ifdef OPENCV
-        std::vector<bbox_t> detect(cv::Mat mat, float thresh = 0.2, bool use_mean = false);
-        std::shared_ptr<image_t> mat_to_image_resize(cv::Mat mat) const;
-#endif
-};
-```
-
-## Citation
-
-```
-@misc{bochkovskiy2020yolov4,
-      title={YOLOv4: Optimal Speed and Accuracy of Object Detection}, 
-      author={Alexey Bochkovskiy and Chien-Yao Wang and Hong-Yuan Mark Liao},
-      year={2020},
-      eprint={2004.10934},
-      archivePrefix={arXiv},
-      primaryClass={cs.CV}
-}
-```
-
-```
-@InProceedings{Wang_2021_CVPR,
-    author    = {Wang, Chien-Yao and Bochkovskiy, Alexey and Liao, Hong-Yuan Mark},
-    title     = {{Scaled-YOLOv4}: Scaling Cross Stage Partial Network},
-    booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
-    month     = {June},
-    year      = {2021},
-    pages     = {13029-13038}
-}
-```
