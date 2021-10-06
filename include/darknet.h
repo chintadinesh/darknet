@@ -720,7 +720,13 @@ typedef struct network {
     float epoch;
     int subdivisions;
     layer *layers;
+
+#ifdef ALL_FIXED
+    int *output;
+#else
     float *output;
+#endif
+
     learning_rate_policy policy;
     int benchmark_layers;
     int *total_bbox;
@@ -795,7 +801,12 @@ typedef struct network {
     int gpu_index;
     tree *hierarchy;
 
+#ifdef ALL_FIXED
+    int *input;
+#else
     float *input;
+#endif
+
     float *truth;
     float *delta;
     float *workspace;
@@ -839,7 +850,13 @@ typedef struct network {
 // network.h
 typedef struct network_state {
     float *truth;
+
+#ifdef ALL_FIXED
+    int *input;
+#else
     float *input;
+#endif
+
     float *delta;
     float *workspace;
     int train;
@@ -862,7 +879,11 @@ typedef struct image {
     int w;
     int h;
     int c;
-    float *data;
+#ifdef ALL_FIXED
+  int *data;
+#else
+  float *data;
+#endif
 } image;
 
 //typedef struct {

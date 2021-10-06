@@ -15,6 +15,7 @@
 #include "snr_test.h"
 
 //#define _GEMTEST
+#define ALL_FIXED
 
 float maximum = 0;
 float minimum = 0;

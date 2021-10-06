@@ -9,6 +9,8 @@
 #include <string.h>
 #include <stdint.h>
 
+#define ALL_FIXED
+
 #if defined(_OPENMP)
 #include <omp.h>
 #endif
@@ -122,11 +124,19 @@ void time_random_matrix(int TA, int TB, int m, int k, int n)
 }
 
 
+#ifdef ALL_FIXED
+void gemm(int TA, int TB, int M, int N, int K, float ALPHA,
+        float *A, int lda,
+        float *B, int ldb,
+        float BETA,
+        int *C, int ldc)
+#else
 void gemm(int TA, int TB, int M, int N, int K, float ALPHA,
         float *A, int lda,
         float *B, int ldb,
         float BETA,
         float *C, int ldc)
+#endif
 {
     if(!use_fx_conv){
         if(!calclate_snr_for_img) {
@@ -2035,10 +2045,13 @@ int __roundup(float fp_number) {
 
 
 
+/*
 void gemm_nn(int M, int N, int K, float ALPHA,
     float *A, int lda,
     float *B, int ldb,
     float *C, int ldc)
+
+*/
 
 /*
 //sending ALPHA pre-scaled
@@ -2048,6 +2061,19 @@ void gemm_nn(int M, int N, int K, int ALPHA,
     float *C, int ldc)
 */
 
+//all fixed-point
+#ifdef ALL_FIXED
+void gemm_nn(int M, int N, int K, int ALPHA,
+    float *A, int lda,
+    float *B, int ldb,
+    int *C, int ldc)
+#else
+
+void gemm_nn(int M, int N, int K, float ALPHA,
+    float *A, int lda,
+    float *B, int ldb,
+    float *C, int ldc)
+#endif
 {
     int i, j, k;
 
@@ -2119,9 +2145,15 @@ void gemm_nn(int M, int N, int K, int ALPHA,
                     //printf("B_PART num = %d\n", tmp_j_mult);
 
                     //float calc_num =((float)tmp_j_mult) / (1 << scale); 
+                    /*
                     C[i*ldc + j] += ((float)((A_PART *
                                             __roundup( B[k*ldb + j] * (1 << scale))) 
                                             >> scale))    /  ( 1 << scale);
+                                            */
+
+                    // we do the floating point division in the end
+                    C[i*ldc + j] 
+                        += (A_PART     *   (int)(B[k*ldb + j] * (1 << scale))) >> scale;
 
                     //printf("Calc num = %10.10f\n", calc_num);
                 }
@@ -2177,13 +2209,18 @@ void gemm_nn(int M, int N, int K, int ALPHA,
 
                     // debug print to ensure that this code block is executed
                     // printf("Hello use_withscale_int_round\n");
+                    /*
                     C[i*ldc + j] 
                         += ( (float)(
                           (A_PART * (int)(B[k*ldb + j] * SCALE_NUM)) 
                                 >> scale))
                                   / SCALE_NUM;
+                    */
                                                                    
 
+                    // we do the floating point division in the end
+                    C[i*ldc + j] 
+                        += (A_PART     *   (int)(B[k*ldb + j] * (1 << scale))) >> scale;
 
                     /*
                     mAP drops to 25% when this method is used
@@ -2910,12 +2947,19 @@ void gemm_tt(int M, int N, int K, float ALPHA,
     }
 }
 
-
+#ifdef ALL_FIXED
+void gemm_cpu(int TA, int TB, int M, int N, int K, float ALPHA,
+        float *A, int lda,
+        float *B, int ldb,
+        float BETA,
+        int *C, int ldc)
+#else
 void gemm_cpu(int TA, int TB, int M, int N, int K, float ALPHA,
         float *A, int lda,
         float *B, int ldb,
         float BETA,
         float *C, int ldc)
+#endif
 {
     //printf("cpu: %d %d %d %d %d %f %d %d %f %d\n",TA, TB, M, N, K, ALPHA, lda, ldb, BETA, ldc);
     if (BETA != 1){

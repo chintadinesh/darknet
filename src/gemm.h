@@ -7,6 +7,8 @@
 extern "C" {
 #endif
 
+#define ALL_FIXED
+
 void convolution_2d(int w, int h, int ksize, int n, int c, int pad, int stride,
     float *weights, float *input, float *output, float *mean);
 
@@ -88,17 +90,33 @@ void forward_maxpool_layer_avx(float *src, float *dst, int *indexes, int size, i
     int pad, int stride, int batch);
 
 
+#ifdef ALL_FIXED
+void gemm(int TA, int TB, int M, int N, int K, float ALPHA,
+                    float *A, int lda,
+                    float *B, int ldb,
+                    float BETA,
+                    int *C, int ldc);
+#else
 void gemm(int TA, int TB, int M, int N, int K, float ALPHA,
                     float *A, int lda,
                     float *B, int ldb,
                     float BETA,
                     float *C, int ldc);
+#endif
 
+#ifdef ALL_FIXED
+void gemm_cpu(int TA, int TB, int M, int N, int K, float ALPHA,
+        float *A, int lda,
+        float *B, int ldb,
+        float BETA,
+        int *C, int ldc);
+#else
 void gemm_cpu(int TA, int TB, int M, int N, int K, float ALPHA,
         float *A, int lda,
         float *B, int ldb,
         float BETA,
         float *C, int ldc);
+#endif
 
 #ifdef GPU
 void gemm_ongpu(int TA, int TB, int M, int N, int K, float ALPHA,
