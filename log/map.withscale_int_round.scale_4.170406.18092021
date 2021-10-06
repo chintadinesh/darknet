@@ -1,0 +1,134 @@
+ GPU isn't used 
+ OpenCV isn't used - data augmentation will be slow 
+   layer   filters  size/strd(dil)      input                output
+   0 conv     16       3 x 3/ 1    416 x 416 x   3 ->  416 x 416 x  16 0.150 BF
+   1 max                2x 2/ 2    416 x 416 x  16 ->  208 x 208 x  16 0.003 BF
+   2 conv     32       3 x 3/ 1    208 x 208 x  16 ->  208 x 208 x  32 0.399 BF
+   3 max                2x 2/ 2    208 x 208 x  32 ->  104 x 104 x  32 0.001 BF
+   4 conv     64       3 x 3/ 1    104 x 104 x  32 ->  104 x 104 x  64 0.399 BF
+   5 max                2x 2/ 2    104 x 104 x  64 ->   52 x  52 x  64 0.001 BF
+   6 conv    128       3 x 3/ 1     52 x  52 x  64 ->   52 x  52 x 128 0.399 BF
+   7 max                2x 2/ 2     52 x  52 x 128 ->   26 x  26 x 128 0.000 BF
+   8 conv    256       3 x 3/ 1     26 x  26 x 128 ->   26 x  26 x 256 0.399 BF
+   9 max                2x 2/ 2     26 x  26 x 256 ->   13 x  13 x 256 0.000 BF
+  10 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+  11 max                2x 2/ 1     13 x  13 x 512 ->   13 x  13 x 512 0.000 BF
+  12 conv   1024       3 x 3/ 1     13 x  13 x 512 ->   13 x  13 x1024 1.595 BF
+  13 conv    256       1 x 1/ 1     13 x  13 x1024 ->   13 x  13 x 256 0.089 BF
+  14 conv    512       3 x 3/ 1     13 x  13 x 256 ->   13 x  13 x 512 0.399 BF
+  15 conv    255       1 x 1/ 1     13 x  13 x 512 ->   13 x  13 x 255 0.044 BF
+  16 yolo
+[yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+  17 route  13 		                           ->   13 x  13 x 256 
+  18 conv    128       1 x 1/ 1     13 x  13 x 256 ->   13 x  13 x 128 0.011 BF
+  19 upsample                 2x    13 x  13 x 128 ->   26 x  26 x 128
+  20 route  19 8 	                           ->   26 x  26 x 384 
+  21 conv    256       3 x 3/ 1     26 x  26 x 384 ->   26 x  26 x 256 1.196 BF
+  22 conv    255       1 x 1/ 1     26 x  26 x 256 ->   26 x  26 x 255 0.088 BF
+  23 yolo
+[yolo] params: iou loss: mse (2), iou_norm: 0.75, obj_norm: 1.00, cls_norm: 1.00, delta_norm: 1.00, scale_x_y: 1.00
+Total BFLOPS 5.571 
+avg_outputs = 341534 
+Loading weights from yolov3-tiny.weights...mini_batch = 1, batch = 1, time_steps = 1, train = 0 
+Done! Loaded 24 layers from weights-file 
+1
+ seen 64, trained: 32013 K-images (500 Kilo-batches_64) 
+
+ calculation mAP (mean average precision)...
+ Detection layer: 16 - type = 28 
+ Detection layer: 23 - type = 28 
+
+ detections_count = 0, unique_truth_count = 4  
+class_id = 0, name = person, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 1, name = bicycle, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 2, name = car, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 3, name = motorbike, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 4, name = aeroplane, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 5, name = bus, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 6, name = train, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 7, name = truck, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 8, name = boat, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 9, name = traffic light, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 10, name = fire hydrant, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 11, name = stop sign, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 12, name = parking meter, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 13, name = bench, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 14, name = bird, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 15, name = cat, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 16, name = dog, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 17, name = horse, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 18, name = sheep, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 19, name = cow, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 20, name = elephant, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 21, name = bear, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 22, name = zebra, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 23, name = giraffe, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 24, name = backpack, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 25, name = umbrella, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 26, name = handbag, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 27, name = tie, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 28, name = suitcase, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 29, name = frisbee, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 30, name = skis, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 31, name = snowboard, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 32, name = sports ball, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 33, name = kite, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 34, name = baseball bat, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 35, name = baseball glove, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 36, name = skateboard, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 37, name = surfboard, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 38, name = tennis racket, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 39, name = bottle, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 40, name = wine glass, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 41, name = cup, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 42, name = fork, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 43, name = knife, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 44, name = spoon, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 45, name = bowl, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 46, name = banana, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 47, name = apple, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 48, name = sandwich, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 49, name = orange, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 50, name = broccoli, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 51, name = carrot, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 52, name = hot dog, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 53, name = pizza, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 54, name = donut, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 55, name = cake, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 56, name = chair, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 57, name = sofa, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 58, name = pottedplant, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 59, name = bed, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 60, name = diningtable, ap = 0.00%   	 (TP = 0, FP = 0) 
+Total Detection Time: 2 Seconds
+class_id = 61, name = toilet, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 62, name = tvmonitor, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 63, name = laptop, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 64, name = mouse, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 65, name = remote, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 66, name = keyboard, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 67, name = cell phone, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 68, name = microwave, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 69, name = oven, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 70, name = toaster, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 71, name = sink, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 72, name = refrigerator, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 73, name = book, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 74, name = clock, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 75, name = vase, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 76, name = scissors, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 77, name = teddy bear, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 78, name = hair drier, ap = 0.00%   	 (TP = 0, FP = 0) 
+class_id = 79, name = toothbrush, ap = 0.00%   	 (TP = 0, FP = 0) 
+
+ for conf_thresh = 0.25, precision = -nan, recall = 0.00, F1-score = -nan 
+ for conf_thresh = 0.25, TP = 0, FP = 0, FN = 4, average IoU = 0.00 % 
+
+ IoU threshold = 50 %, used Area-Under-Curve for each unique Recall 
+
+ mean average precision (mAP) = 0.000000, or 0.00 % (1 classes)
+
+Set -points flag:
+ `-points 101` for MS COCO 
+ `-points 11` for PascalVOC 2007 (uncomment `difficult` in voc.data) 
+ `-points 0` (AUC) for ImageNet, PascalVOC 2010-2012, your custom dataset
