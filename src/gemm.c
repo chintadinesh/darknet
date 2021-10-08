@@ -2020,19 +2020,6 @@ int is_fma_avx2() {
     return 0;
 }
 
-// http://users.ece.utexas.edu/~gerstl/ece382m_f21/labs/lab1/fp2fx.cpp
-int __roundup(float fp_number) {
-    //if(fp_number > maximum) maximum = fp_number;
-    //if(fp_number < minimum) minimum = fp_number;
-
-	DTYPE fx_number	=	(DTYPE)fp_number;
-    //printf("Hello\n");
-
-	if(fp_number-fx_number>=0.5)	fx_number++;
-
-	return	fx_number;
-}
-
 
 
 void gemm_nn(int M, int N, int K, float ALPHA,
@@ -2049,6 +2036,22 @@ void gemm_nn(int M, int N, int K, int ALPHA,
 */
 
 {
+
+#ifndef OFFLOAD
+
+    // http://users.ece.utexas.edu/~gerstl/ece382m_f21/labs/lab1/fp2fx.cpp
+    int __roundup(float fp_number) {
+        //if(fp_number > maximum) maximum = fp_number;
+        //if(fp_number < minimum) minimum = fp_number;
+
+        DTYPE fx_number	=	(DTYPE)fp_number;
+        //printf("Hello\n");
+
+        if(fp_number-fx_number>=0.5)	fx_number++;
+
+        return	fx_number;
+    }
+
     int i, j, k;
 
     /* Uncomment for floating point computations
@@ -2251,6 +2254,12 @@ void gemm_nn(int M, int N, int K, int ALPHA,
             }
         }
     }
+
+#else
+    gemm_nn_offload(M, N, K, ALPHA, A, lda, B, ldb, C, ldc);
+#endif
+
+    return;
 }
 
 void gemm_nn_fast(int M, int N, int K, float ALPHA,
