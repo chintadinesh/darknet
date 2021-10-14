@@ -17,9 +17,14 @@ ZED_CAMERA_v2_8=0
 USE_CPP=0
 USE_PROFILING=0
 DEBUG=0
-OFFLOAD=1
+MYDEBUG=0
+DEBUG_GEMM_OFFLOAD=0
+TEST_GEMM_NN_OFFLOAD=0
 
 # For cross compiling set this variable
+OFFLOAD=0
+OFFLOAD_CHUNK=0
+OFFLOAD_GEMM_NN=1
 USE_CROSS=1
 
 ARCH= -gencode arch=compute_35,code=sm_35 \
@@ -100,6 +105,14 @@ ifeq ($(OFFLOAD), 1)
 COMMON+= -DOFFLOAD
 endif
 
+ifeq ($(OFFLOAD_CHUNK), 1)
+COMMON+= -DOFFLOAD_CHUNK
+endif
+
+ifeq ($(OFFLOAD_GEMM_NN), 1)
+COMMON+= -DOFFLOAD_GEMM_NN
+endif
+
 ifeq ($(DEBUG), 1)
 #OPTS= -O0 -g
 #OPTS= -Og -g
@@ -109,6 +122,18 @@ else
 ifeq ($(AVX), 1)
 CFLAGS+= -ffp-contract=fast -mavx -mavx2 -msse3 -msse4.1 -msse4.2 -msse4a
 endif
+endif
+
+ifeq ($(MYDEBUG), 1)
+COMMON+= -DMYDEBUG
+endif
+
+ifeq ($(DEBUG_GEMM_OFFLOAD), 1)
+COMMON+= -DDEBUG_GEMM_OFFLOAD
+endif
+
+ifeq ($(TEST_GEMM_NN_OFFLOAD), 1)
+COMMON+= -DTEST_GEMM_NN_OFFLOAD
 endif
 
 CFLAGS+=$(OPTS)
@@ -186,6 +211,10 @@ conv_lstm_layer.o scale_channels_layer.o sam_layer.o snr_test.o
 
 ifeq ($(OFFLOAD), 1)
 OBJ+= gemm_nn_offload.o
+endif
+
+ifeq ($(TEST_GEMM_NN_OFFLOAD), 1)
+OBJ+= test_gemm_nn_offload.o
 endif
 
 ifeq ($(DEBUG), 1)
@@ -273,7 +302,19 @@ yolo_layer.o gaussian_yolo_layer.o upsample_layer.o lstm_layer.o\
 conv_lstm_layer.o scale_channels_layer.o sam_layer.o snr_test.o 
 
 ifeq ($(OFFLOAD), 1)
-OBJ+= gemm_nn_offload.o
+OBJ+= gemm_nn_offload.o offload.o
+endif
+
+ifeq ($(OFFLOAD_CHUNK), 1)
+OBJ+= gemm_nn_offload.o offload.o
+endif
+
+ifeq ($(OFFLOAD_GEMM_NN), 1)
+OBJ+= gemm_nn_offload.o offload.o
+endif
+
+ifeq ($(TEST_GEMM_NN_OFFLOAD), 1)
+OBJ+= test_gemm_nn_offload.o
 endif
 
 ifeq ($(GPU), 1)
@@ -284,7 +325,7 @@ endif
 OBJS = $(addprefix $(OBJDIR), $(OBJ))
 DEPS = $(wildcard src/*.h) Makefile include/darknet.h
 
-all: $(OBJDIR) backup results setchmod $(EXEC) $(LIBNAMESO) $(APPNAMESO)
+all: $(OBJDIR) backup results setchmod $(EXEC) $(LIBNAMESO) $(APPNAMESO) 
 
 ifeq ($(LIBSO), 1)
 CFLAGS+= -fPIC

@@ -46,6 +46,7 @@ static inline int popcnt_64(uint64_t val64) {
 #define TILE_M 4 // 4 ops
 #define TILE_N 16 // AVX2 = 2 ops * 8 floats
 #define TILE_K 16 // loop
+
 #ifdef __cplusplus
 #define PUT_IN_REGISTER
 #else
@@ -55,6 +56,7 @@ static inline int popcnt_64(uint64_t val64) {
 #define DTYPE int
 
 #include "snr_test.h"
+#include "gemm_nn_offload.h"
 
 extern bool save_output;
 extern float maximum, minimum;
@@ -63,6 +65,11 @@ extern bool use_cnative_round;
 extern bool use_withscale_int_round;
 extern bool calclate_snr_for_img;
 extern int scale;
+
+int gemm_counter = 0;
+
+#include <time.h>
+extern clock_t tm;
 
 
 void gemm_bin(int M, int N, int K, float ALPHA,
@@ -134,7 +141,49 @@ void gemm(int TA, int TB, int M, int N, int K, float ALPHA,
         }
     }
 
+
+    printf("[INFO] Layer: %d\n, invoking gemm at time = %f seconds\n", 
+                    gemm_counter, ((double)(clock() - tm))/CLOCKS_PER_SEC);
+
+
     gemm_cpu( TA,  TB,  M, N, K, ALPHA,A,lda, B, ldb,BETA,C,ldc);
+
+    printf("[INFO] Layer: %d\n, time elapsed = %f seconds\n", 
+                    gemm_counter++, ((double)(clock() - tm))/CLOCKS_PER_SEC);
+
+#ifdef PROFILE_VALUES
+    // We print teh A, B, C matrices to files. To make sure that the results
+    // are as expected
+    char *file_name = (char*)malloc(13 * sizeof(char));
+    sprintf(file_name, "val%d.txt", gemm_counter);
+    FILE * fp = fopen(file_name,"w");
+    fprintf(fp, "A = [");
+    for(int i =0; i <M; i++) {
+        for(int j = 0; j < lda; j++) 
+            fprintf("%d ", A[i*lda + j]);
+        fprintf("\n");
+    }
+    fprintf(fp, "]\n");
+
+    fprintf(fp, "B = [");
+    for(int i =0; i <K; i++) {
+        for(int j = 0; j < ldb; j++) 
+            fprintf("%d ", B[i*ldb + j]);
+        fprintf("\n");
+    }
+    fprintf(fp, "]");
+
+    fprintf(fp, "C = [");
+    for(int i =0; i <N; i++) {
+        for(int j = 0; j < ldc; j++) 
+            fprintf("%d ", C[i*ldc + j]);
+        fprintf("\n");
+    }
+    fprintf(fp, "]");
+
+    fclose(fp);
+
+#endif
 
     if(save_output){
         FILE * fp = fopen("cout.txt","w");
@@ -2037,7 +2086,17 @@ void gemm_nn(int M, int N, int K, int ALPHA,
 
 {
 
-#ifndef OFFLOAD
+#ifdef OFFLOAD
+    gemm_nn_offload(M, N, K, ALPHA, A, lda, B, ldb, C, ldc);
+
+#elif OFFLOAD_CHUNK
+    gemm_nn_offload(M, N, K, ALPHA, A, lda, B, ldb, C, ldc);
+
+#elif OFFLOAD_GEMM_NN
+    gemm_nn_offload(M, N, K, ALPHA, A, lda, B, ldb, C, ldc);
+
+
+#else
 
     // http://users.ece.utexas.edu/~gerstl/ece382m_f21/labs/lab1/fp2fx.cpp
     int __roundup(float fp_number) {
@@ -2255,8 +2314,6 @@ void gemm_nn(int M, int N, int K, int ALPHA,
         }
     }
 
-#else
-    gemm_nn_offload(M, N, K, ALPHA, A, lda, B, ldb, C, ldc);
 #endif
 
     return;

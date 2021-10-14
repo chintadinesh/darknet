@@ -13,6 +13,10 @@
 #include "connected_layer.h"
 
 #include "snr_test.h"
+#include "test_gemm_nn_offload.h"
+
+
+#include "offload.h"
 
 //#define _GEMTEST
 
@@ -33,6 +37,9 @@ bool use_withscale_int_round = 1;
 bool calclate_snr_for_img = 0;
 
 int scale = 13; // based on the best mAP got
+
+#include <time.h>
+clock_t tm;
 
 extern void predict_classifier(char *datacfg, char *cfgfile, char *weightfile, char *filename, int top);
 extern void run_voxel(int argc, char **argv);
@@ -453,6 +460,7 @@ void visualize(char *cfgfile, char *weightfile)
 
 int main(int argc, char **argv)
 {
+    tm = clock();
 
 #ifdef _DEBUG
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
@@ -461,6 +469,22 @@ int main(int argc, char **argv)
 
 #ifdef DEBUG
     printf(" DEBUG=1 \n");
+#endif
+
+
+#ifdef TEST_GEMM_NN_OFFLOAD
+    init_memory();
+    test_gemm_nn_offload();
+    delete_momory();
+    return 0;
+#endif
+
+#ifdef OFFLOAD
+    init_memory();
+#elif OFFLOAD_CHUNK
+    init_memory();
+#elif OFFLOAD_GEMM_NN 
+    init_memory();
 #endif
 
 #ifndef _GEMTEST
@@ -584,6 +608,12 @@ int main(int argc, char **argv)
 #ifdef _GEMTEST
     printf("\n[DEBUG] Testing our gemm operation\n");
     test_gemm_matt();
+#endif
+
+#ifdef OFFLOAD
+    delete_momory();
+#elif OFFLOAD_CHUNK
+    delete_momory();
 #endif
 
     //printf("\n[DEBUG] Discovered max = %f, min = %f\n", maximum, minimum);
