@@ -6,7 +6,7 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 
-#define MAP_SIZE 4096UL
+#define MAP_SIZE 0x10000ul
 #define MAP_MASK (MAP_SIZE - 1)
 
 int init_memory();

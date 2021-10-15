@@ -160,24 +160,24 @@ void gemm(int TA, int TB, int M, int N, int K, float ALPHA,
     fprintf(fp, "A = [");
     for(int i =0; i <M; i++) {
         for(int j = 0; j < lda; j++) 
-            fprintf("%d ", A[i*lda + j]);
-        fprintf("\n");
+            fprintf(fp, "%f ", A[i*lda + j]);
+        fprintf(fp, "\n");
     }
     fprintf(fp, "]\n");
 
     fprintf(fp, "B = [");
     for(int i =0; i <K; i++) {
         for(int j = 0; j < ldb; j++) 
-            fprintf("%d ", B[i*ldb + j]);
-        fprintf("\n");
+            fprintf(fp, "%f ", B[i*ldb + j]);
+        fprintf(fp, "\n");
     }
     fprintf(fp, "]");
 
     fprintf(fp, "C = [");
     for(int i =0; i <N; i++) {
         for(int j = 0; j < ldc; j++) 
-            fprintf("%d ", C[i*ldc + j]);
-        fprintf("\n");
+            fprintf(fp, "%f ", C[i*ldc + j]);
+        fprintf(fp, "\n");
     }
     fprintf(fp, "]");
 

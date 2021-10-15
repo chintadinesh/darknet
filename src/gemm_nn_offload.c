@@ -249,8 +249,7 @@ void gemm_nn_offload(int M, int N, int K, float ALPHA,
 
         for (j = 0; j < N; ++j) {
             // for all B, reuse A and update C
-            copy_convert_B_into_vec2(
-                    B, 
+            copy_convert_B_into_vec2( B, 
                     vec2, 
                     lda, 
                     0,
@@ -268,10 +267,10 @@ void gemm_nn_offload(int M, int N, int K, float ALPHA,
             printf("\n");
 #endif
 
-            int rec_oup = get_c_int()/SCALE_NUM;
+            float rec_oup = ((float)get_c_int())/SCALE_NUM;
 
 #ifdef MYDEBUG 
-            printf("Received output = %d\n", rec_oup);
+            printf("Received output = %f\n", rec_oup);
 #endif
 
             C[j] += rec_oup; 

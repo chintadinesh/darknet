@@ -151,8 +151,8 @@ void offload_A_chunk(int arr[], int size) {
     #pragma message("Inside offloading loop")
 
 
-#ifdef MYDEBUG
-    printf("Reading current interrupt values.\n");
+//#ifdef MYDEBUG
+//    printf("Reading current interrupt values.\n");
 
 //    if(address_int == NULL) 
 //        printf("address_int is NULL\n");
@@ -165,7 +165,7 @@ void offload_A_chunk(int arr[], int size) {
 //
 //    printf("Setting the interrupt bit to 1.\n");
 //    fflush(stdout);
-#endif
+//#endif
 
 //    *address_int = 1;
 
@@ -177,10 +177,10 @@ void offload_A_chunk(int arr[], int size) {
     //memcpy(address_a_int,  arr, size * sizeof(int));
 
     // wait until the vaule is written 
-#ifdef MYDEBUG
-    printf("Waiting until the interrupt is cleared.\n");
+//#ifdef MYDEBUG
+//    printf("Waiting until the interrupt is cleared.\n");
  //   fflush(stdout);
-#endif
+//#endif
 
 //    while(*address_int == 1)
 //        ;
@@ -316,9 +316,9 @@ void copy_convert_B_into_vec2(float B[],
     #pragma message("Inside offloading loop")
     //printf("[DEBUG] B = ");
     for(int k=k_start; k < (k_start + size); k++) {
-        int b = B[k * ldb + j];
+        float b = B[k * ldb + j];
         *(vec2 + (k-k_start)) = (int)( b * SCALE_NUM);
-     //   printf("%d, %d ", b, *(vec2 + (k-k_start)));
+        //printf("%f, %d ", b, *(vec2 + (k-k_start)));
     }
     //printf("\n");
 
