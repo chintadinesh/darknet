@@ -1,4 +1,130 @@
 # EE382M SOC report <!--[github link](https://github.com/CHINTADINESH/darknet.git) -->
+<!-- Dear TA, please request for github access permission, do you wish to look
+into it-->
+- [Lab2 setup link](http://users.ece.utexas.edu/~gerstl/ece382m_f21/labs/lab2.htm)
+This lab has two git projects associated
+1. This darknet repo
+2. Xilinx's [systemC accelerator](https://github.com/CHINTADINESH/systemctlm-cosim-demo)
+
+## Setup
+To ease the process of, we added the following lines in our bashrc.
+### QEMU systemc 
+```bash
+alias cd_project='cd /misc/scratch/dchinta'
+
+alias qemu_bootp='/home/projects/gerstl/ece382m/qemu-boot -n hostfwd=tcp::1234-:1234'
+alias qemu_bootpc='/home/projects/gerstl/ece382m/qemu-boot -c -n hostfwd=tcp::1234-:1234'
+
+
+alias qemu_boot='/home/projects/gerstl/ece382m/qemu-boot'
+alias qemu_bootc='/home/projects/gerstl/ece382m/qemu-boot -c'
+
+module load systemc/2.3.3
+module load xilinx/2018
+source /usr/local/packages/xilinx_2018/vivado_hl/SDK/2018.3/settings64.sh
+
+alias device_tree_create='dtc -I dts -O dtb -o system.dtb system.dts'
+
+alias z_demo='./zynqmp_demo unix:../tmp/qemu-rport-_amba@0_cosim@0 1000000'
+
+alias make='make -j8'
+alias gdbr='aarch64-linux-gnu-gdb '
+```
+
+The above code loads the required project environment.
+
+As specified in the lab document, copy the linux image files
+```bash
+cp -a /home/projects/gerstl/ece382m/images .
+```
+
+See if you can boot the kernel
+```bash
+qemu_boot
+```
+
+### Systemc building
+1. Copy the the zynqmp.zip file to your LRC machine and Unzip it. Or get the project from
+   git. Switch to 'app' branch.
+   ```bash
+   git checkout app
+   ```
+
+2. Build the project.
+```bash
+cd /misc/scratch/dchinta/lab2/systemctlm-cosim-demo
+make clean && make
+```
+
+Makefile options
+1. MYDEBUG=1            // To enable print statements 
+2. OFFLOAD\_GEMM\_NN=1    // Our gemm code. This is to differentiate othere
+                        // options used while experimentation
+
+Start the zynqmp accelerator
+```bash
+./zynqmp_demo unix:../tmp/qemu-rport-_amba@0_cosim@0 1000000
+```
+
+
+### Darknet building
+1. Copy the the darknet.zip file to your LRC machine and Unzip it. Or get the project from
+   git. Switch to 'mult\_fixed' branch.
+2. Build the project. By default the Makefile options are set to work with the acclerator in a
+normal mode. 
+```bash
+cd /misc/scratch/dchinta/lab1/darknet 
+make clean && make
+```
+
+    Makefile options
+    1. MYDEBUG=1 
+    2. OFFLOAD\_GEMM\_NN=1    // Our gemm code. This is to differentiate other
+                            // options used while experimentation
+    3. TEST\_GEMM\_NN\_OFFLOAD=1 // Simply tests our test\_gemm\_nn\_output testcase
+    and exits; Used for testing. 
+    4. PROFILE\_VALUES=0         // dumps vals%layer.txt file. Used to verify that
+                                // our gemm\_\_nn\_offload is working properly. Currently, this is throwing some
+                                // segmentation fault. However, we were able to capture first layer output.
+                                // Not fixing this provided the time constraint.
+    5. MYDEBUG=1       //prints overwelmengly verbose messages. Please enable
+                        // only if want to see every value that is being sent and received.
+
+
+3. Start QEMU
+```bash
+/home/projects/gerstl/ece382m/qemu-boot -c -n hostfwd=tcp::1234-:1234
+```
+4. We added the following lines in our bashrc files to ease the development
+   process. 
+   ```bash
+   alias scp_dt='scp dchinta@mario.ece.utexas.edu:/misc/scratch/dchinta/lab2/QEMU_SystemC_app/boot/system.dtb /boot'
+
+   alias scp_ex='scp dchinta@mario.ece.utexas.edu:/misc/scratch/dchinta/lab2/QEMU_SystemC_app/application/example ./'
+   alias scp_exk='scp dchinta@mario.ece.utexas.edu:/misc/scratch/dchinta/lab2/QEMU_SystemC_app/application.irq/example ./'
+   alias scp_ko='scp dchinta@mario.ece.utexas.edu:/misc/scratch/dchinta/lab2/QEMU_SystemC_app/application.irq/fpga_drv.ko ./'
+
+    # To copy the entire darkent
+    alias scp_da='cd ~ && scp -r dchinta@mario.ece.utexas.edu:/misc/scratch/dchinta/lab1/darknet darknet && cd -'
+    alias scp_de='cd ~ && scp -r dchinta@mario.ece.utexas.edu:/misc/scratch/dchinta/lab1/darknet/darknet darknet/darknet/ && cd -'
+    alias scp_dt='cd ~ && scp -r dchinta@mario.ece.utexas.edu:/misc/scratch/dchinta/lab1/darknet/test_gemm_nn_offload darknet/darknet/test_gemm_nn_offload && cd -'
+   ```
+
+5. Copy the darkent directory into your QEMU OS. For the first copy all the
+   files.
+```bash
+cd ~ && scp -r dchinta@mario.ece.utexas.edu:/misc/scratch/dchinta/lab1/darknet darknet && cd -
+# scp_da
+```
+6. Change directory inside the darknet
+7. Run darknet
+```bash
+./darknet detector test cfg/coco.data cfg/yolov3-tiny.cfg yolov3-tiny.weights data/dog.jpg
+# ./single_run.sh
+```
+
+
+# EE382M SOC report <!--[github link](https://github.com/CHINTADINESH/darknet.git) -->
 - [Lab1 setup link](http://users.ece.utexas.edu/~gerstl/ece382m_f21/labs/lab1.htm)
 
 ## Miscellaneous points while lab setup.
